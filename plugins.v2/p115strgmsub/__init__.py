@@ -44,7 +44,7 @@ class P115StrgmSub(_PluginBase):
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png"
     # 插件版本
-    plugin_version = "1.3.3"
+    plugin_version = "1.3.4"
     # 插件作者
     plugin_author = "mrtian2016"
     # 作者主页
@@ -90,6 +90,8 @@ class P115StrgmSub(_PluginBase):
     _hdhive_query_mode: str = "api"
     _hdhive_api_key: str = ""
     _hdhive_auto_unlock: bool = False
+    _hdhive_max_unlock_points: int = 50
+    _hdhive_max_points_per_sub: int = 20
 
     # 是否屏蔽系统订阅（True=已屏蔽系统订阅，False=已恢复系统订阅）
     _block_system_subscribe: bool = False
@@ -585,6 +587,8 @@ class P115StrgmSub(_PluginBase):
             self._hdhive_query_mode = config.get("hdhive_query_mode", "api")
             self._hdhive_api_key = config.get("hdhive_api_key", "")
             self._hdhive_auto_unlock = config.get("hdhive_auto_unlock", False)
+            self._hdhive_max_unlock_points = int(config.get("hdhive_max_unlock_points", 50) or 50)
+            self._hdhive_max_points_per_sub = int(config.get("hdhive_max_points_per_sub", 20) or 20)
             self._hdhive_username = config.get("hdhive_username", "")
             self._hdhive_password = config.get("hdhive_password", "")
             self._hdhive_cookie = config.get("hdhive_cookie", "")
@@ -709,12 +713,16 @@ class P115StrgmSub(_PluginBase):
             hdhive_query_mode=self._hdhive_query_mode,
             hdhive_api_key=self._hdhive_api_key,
             hdhive_auto_unlock=self._hdhive_auto_unlock,
+            hdhive_max_unlock_points=self._hdhive_max_unlock_points,
+            hdhive_max_points_per_sub=self._hdhive_max_points_per_sub,
             hdhive_username=self._hdhive_username,
             hdhive_password=self._hdhive_password,
             hdhive_cookie=self._hdhive_cookie,
             only_115=self._only_115,
             pansou_channels=self._pansou_channels
         )
+        # 设置持久化函数，用于保存订阅的历史积分花费
+        self._search_handler.set_data_funcs(self.get_data, self.save_data)
 
         self._sync_handler = SyncHandler(
             p115_manager=self._p115_manager,
@@ -767,6 +775,8 @@ class P115StrgmSub(_PluginBase):
             "hdhive_query_mode": self._hdhive_query_mode,
             "hdhive_api_key": self._hdhive_api_key,
             "hdhive_auto_unlock": self._hdhive_auto_unlock,
+            "hdhive_max_unlock_points": self._hdhive_max_unlock_points,
+            "hdhive_max_points_per_sub": self._hdhive_max_points_per_sub,
             "hdhive_username": self._hdhive_username,
             "hdhive_password": self._hdhive_password,
             "hdhive_cookie": self._hdhive_cookie,
@@ -926,6 +936,11 @@ class P115StrgmSub(_PluginBase):
         try:
             if self._nullbr_client:
                 self._nullbr_client.reset_api_call_count()
+        except Exception:
+            pass
+        try:
+            if self._search_handler:
+                self._search_handler.reset_task_spent_points()
         except Exception:
             pass
 
