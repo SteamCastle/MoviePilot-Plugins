@@ -947,3 +947,87 @@ class P115ClientManager:
     def reset_api_call_count(self):
         """重置 API 调用计数器"""
         self._api_call_count = 0
+
+    def _get_offline_sign(self) -> Optional[str]:
+        """
+        获取离线下载所需的 sign
+
+        :return: sign 字符串，失败返回 None
+        """
+        if not self.client:
+            return None
+
+        try:
+            import time as time_module
+            ts = str(int(time_module.time() * 1000))
+            url = f"https://115.com/?ct=offline&ac=space&_={ts}"
+            
+            self.rate_limiter.wait()
+            self._api_call_count += 1
+            resp = self.client.request(url, method="GET")
+            
+            if resp.get("state"):
+                return resp.get("sign", "")
+            else:
+                logger.error(f"获取离线 sign 失败: {resp.get('error', '未知错误')}")
+                return None
+        except Exception as e:
+            logger.error(f"获取离线 sign 异常: {e}")
+            return None
+
+    def add_offline_task(self, url: str, save_path: str = "") -> bool:
+        """
+        添加离线下载任务（支持 magnet 和 ed2k 链接）
+
+        :param url: 磁力链接或电驴链接
+        :param save_path: 保存路径（可选）
+        :return: 是否成功
+        """
+        if not self.client:
+            logger.error("115 客户端未初始化")
+            return False
+
+        if not url:
+            logger.error("离线下载链接为空")
+            return False
+
+        sign = self._get_offline_sign()
+        if not sign:
+            logger.error("无法获取离线下载 sign")
+            return False
+
+        try:
+            import time as time_module
+            from urllib.parse import quote
+            
+            ts = str(int(time_module.time()))
+            api_url = "https://115.com/web/lixian/?ct=lixian&ac=add_task_url"
+            
+            encoded_url = quote(url, safe='')
+            
+            data = f"url={encoded_url}&savepath={quote(save_path, safe='')}&wp_path_id=&uid=&sign={sign}&time={ts}"
+            
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            }
+            
+            self.rate_limiter.wait()
+            self._api_call_count += 1
+            resp = self.client.request(
+                api_url,
+                method="POST",
+                data=data,
+                headers=headers
+            )
+            
+            if resp.get("state"):
+                logger.info(f"离线下载任务添加成功: {url[:50]}...")
+                return True
+            else:
+                error_msg = resp.get("error", resp.get("message", "未知错误"))
+                logger.error(f"离线下载任务添加失败: {error_msg}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"添加离线下载任务异常: {e}")
+            return False

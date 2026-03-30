@@ -223,7 +223,8 @@ class UIConfig:
                             {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
                              'content': [{'component': 'VTextField', 'props': {'model': 'pansou_channels', 'label': 'TG 搜索频道', 'placeholder': '频道,用逗号分隔'}}]},
                             {'component': 'VCol', 'props': {'cols': 12, 'md': 3},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'pansou_cloud_types', 'label': '网盘类型', 'placeholder': '115,quark,aliyun'}}]}
+                             'content': [{'component': 'VSelect', 'props': {'model': 'pansou_cloud_types', 'label': '网盘类型', 'multiple': True, 'chips': True, 'hint': '可多选，按选择顺序优先处理',
+                                 'items': [{'title': '115网盘', 'value': '115'}, {'title': '磁力链接', 'value': 'magnet'}, {'title': '电驴链接', 'value': 'ed2k'}]}}]}
                         ]
                     },
                     # PanSou 认证
@@ -360,7 +361,7 @@ class UIConfig:
             "pansou_password": "",
             "pansou_auth_enabled": False,
             "pansou_channels": "QukanMovie",
-            "pansou_cloud_types": "",
+            "pansou_cloud_types": ["115"],
             "nullbr_enabled": False,
             "nullbr_appid": "",
             "nullbr_api_key": "",

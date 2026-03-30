@@ -71,7 +71,7 @@ class P115StrgmSub(_PluginBase):
     _pansou_password: str = ""
     _pansou_auth_enabled: bool = False
     _pansou_channels: str = "QukanMovie"
-    _pansou_cloud_types: str = ""
+    _pansou_cloud_types: List[str] = ["115"]
 
     _save_path: str = "/我的接收/MoviePilot/TV"
     _movie_save_path: str = "/我的接收/MoviePilot/Movie"
@@ -574,7 +574,7 @@ class P115StrgmSub(_PluginBase):
             self._pansou_password = config.get("pansou_password", "")
             self._pansou_auth_enabled = config.get("pansou_auth_enabled", False)
             self._pansou_channels = config.get("pansou_channels", "QukanMovie")
-            self._pansou_cloud_types = config.get("pansou_cloud_types", "")
+            self._pansou_cloud_types = config.get("pansou_cloud_types", ["115"]) or ["115"]
 
             self._save_path = config.get("save_path", "/我的接收/MoviePilot/TV")
             self._movie_save_path = config.get("movie_save_path", "/我的接收/MoviePilot/Movie")
