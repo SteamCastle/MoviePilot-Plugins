@@ -71,6 +71,7 @@ class P115StrgmSub(_PluginBase):
     _pansou_password: str = ""
     _pansou_auth_enabled: bool = False
     _pansou_channels: str = "QukanMovie"
+    _pansou_cloud_types: str = ""
 
     _save_path: str = "/我的接收/MoviePilot/TV"
     _movie_save_path: str = "/我的接收/MoviePilot/Movie"
@@ -573,6 +574,7 @@ class P115StrgmSub(_PluginBase):
             self._pansou_password = config.get("pansou_password", "")
             self._pansou_auth_enabled = config.get("pansou_auth_enabled", False)
             self._pansou_channels = config.get("pansou_channels", "QukanMovie")
+            self._pansou_cloud_types = config.get("pansou_cloud_types", "")
 
             self._save_path = config.get("save_path", "/我的接收/MoviePilot/TV")
             self._movie_save_path = config.get("movie_save_path", "/我的接收/MoviePilot/Movie")
@@ -719,7 +721,8 @@ class P115StrgmSub(_PluginBase):
             hdhive_password=self._hdhive_password,
             hdhive_cookie=self._hdhive_cookie,
             only_115=self._only_115,
-            pansou_channels=self._pansou_channels
+            pansou_channels=self._pansou_channels,
+            pansou_cloud_types=self._pansou_cloud_types
         )
         # 设置持久化函数，用于保存订阅的历史积分花费
         self._search_handler.set_data_funcs(self.get_data, self.save_data)
@@ -767,6 +770,7 @@ class P115StrgmSub(_PluginBase):
             "pansou_password": self._pansou_password,
             "pansou_auth_enabled": self._pansou_auth_enabled,
             "pansou_channels": self._pansou_channels,
+            "pansou_cloud_types": self._pansou_cloud_types,
             "nullbr_enabled": self._nullbr_enabled,
             "nullbr_appid": self._nullbr_appid,
             "nullbr_api_key": self._nullbr_api_key,

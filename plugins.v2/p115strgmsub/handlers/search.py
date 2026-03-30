@@ -32,7 +32,8 @@ class SearchHandler:
         hdhive_max_unlock_points: int = 50,
         hdhive_max_points_per_sub: int = 20,
         only_115: bool = True,
-        pansou_channels: str = ""
+        pansou_channels: str = "",
+        pansou_cloud_types: str = ""
     ):
         """
         初始化搜索处理器
@@ -73,6 +74,7 @@ class SearchHandler:
         self._save_data_func = None
         self._only_115 = only_115
         self._pansou_channels = pansou_channels
+        self._pansou_cloud_types = pansou_cloud_types
 
     def get_enabled_sources(self) -> List[str]:
         """
@@ -167,7 +169,12 @@ class SearchHandler:
         :param keyword: 搜索关键词
         :return: 115网盘资源列表
         """
-        cloud_types = ["115"] if self._only_115 else None
+        if self._pansou_cloud_types and self._pansou_cloud_types.strip():
+            cloud_types = [ct.strip() for ct in self._pansou_cloud_types.split(',') if ct.strip()]
+        elif self._only_115:
+            cloud_types = ["115"]
+        else:
+            cloud_types = None
 
         channels = None
         if self._pansou_channels and self._pansou_channels.strip():
