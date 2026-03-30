@@ -455,7 +455,7 @@ def convert_nullbr_to_pansou_format(nullbr_resources: List[Dict]) -> List[Dict]:
     将 Nullbr 资源格式转换为统一的资源格式
 
     Nullbr 格式: {"title": "...", "share_link": "...", "size": "...", "resolution": "...", "season_list": [...]}
-    统一格式: {"url": "...", "title": "...", "update_time": ""}
+    统一格式: {"url": "...", "title": "...", "update_time": "", "pan_type": "115"}
 
     :param nullbr_resources: Nullbr 返回的资源列表
     :return: 统一格式的资源列表
@@ -465,7 +465,8 @@ def convert_nullbr_to_pansou_format(nullbr_resources: List[Dict]) -> List[Dict]:
         converted.append({
             "url": resource.get("share_link", ""),
             "title": resource.get("title", ""),
-            "update_time": ""  # Nullbr 没有更新时间字段
+            "update_time": "",
+            "pan_type": "115"
         })
     return converted
 
@@ -475,7 +476,7 @@ def convert_hdhive_to_pansou_format(hdhive_resources: List[Any]) -> List[Dict]:
     将 HDHive 资源格式转换为统一的资源格式
 
     HDHive ResourceInfo: title, share_url, share_size, website, is_free, unlock_points 等
-    统一格式: {"url": "...", "title": "...", "update_time": ""}
+    统一格式: {"url": "...", "title": "...", "update_time": "", "pan_type": "115"}
 
     :param hdhive_resources: HDHive 返回的资源列表
     :return: 统一格式的资源列表
@@ -501,6 +502,7 @@ def convert_hdhive_to_pansou_format(hdhive_resources: List[Any]) -> List[Dict]:
             converted.append({
                 "url": url,
                 "title": title,
-                "update_time": ""
+                "update_time": "",
+                "pan_type": "115"
             })
     return converted

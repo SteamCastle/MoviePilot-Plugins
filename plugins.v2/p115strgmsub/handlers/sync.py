@@ -166,6 +166,7 @@ class SyncHandler:
 
                 share_url = resource.get("url", "")
                 resource_title = resource.get("title", "")
+                pan_type = resource.get("pan_type", "115")
 
                 # 检查是否是刚搜索出尚未真正解锁的延期解锁 HDHive 资源
                 if resource.get("need_unlock") and not share_url:
@@ -184,35 +185,35 @@ class SyncHandler:
                 if not share_url:
                     continue
 
-                logger.info(f"检查分享：{resource_title} - {share_url}")
+                logger.info(f"检查资源 ({pan_type})：{resource_title} - {share_url[:50]}...")
 
                 try:
-                    # 先检查分享链接是否有效
-                    share_status = self._p115_manager.check_share_status(share_url)
-                    if not share_status.is_valid:
-                        logger.warning(f"分享链接无效：{share_url}，原因：{share_status.status_text}")
-                        continue
+                    if pan_type == "115":
+                        share_status = self._p115_manager.check_share_status(share_url)
+                        if not share_status.is_valid:
+                            logger.warning(f"分享链接无效：{share_url}，原因：{share_status.status_text}")
+                            continue
 
-                    share_files = self._p115_manager.list_share_files(share_url)
-                    if not share_files:
-                        logger.info(f"分享链接无内容：{share_url}")
-                        continue
+                        share_files = self._p115_manager.list_share_files(share_url)
+                        if not share_files:
+                            logger.info(f"分享链接无内容：{share_url}")
+                            continue
 
-                    # 匹配电影文件
-                    matched_file = FileMatcher.match_movie_file(
-                        share_files, mediainfo.title,
-                        subscribe_filter=subscribe_filter
-                    )
+                        matched_file = FileMatcher.match_movie_file(
+                            share_files, mediainfo.title,
+                            subscribe_filter=subscribe_filter
+                        )
 
-                    if matched_file:
+                        if not matched_file:
+                            logger.info(f"未找到匹配的电影文件")
+                            continue
+
                         file_name = matched_file.get('name', '')
                         logger.info(f"找到匹配文件：{file_name}")
 
-                        # 计算当前文件的过滤分数和是否完美匹配
                         _, current_score = subscribe_filter.match(file_name) if subscribe_filter.has_filters() else (True, 0)
                         is_perfect = subscribe_filter.is_perfect_match(file_name) if subscribe_filter.has_filters() else True
 
-                        # 洗版模式下检查是否需要升级资源
                         if is_best_version and movie_history_score >= 0:
                             if current_score <= movie_history_score:
                                 logger.info(f"电影 {mediainfo.title} 已有分数 {movie_history_score}，当前 {current_score}，跳过")
@@ -220,18 +221,15 @@ class SyncHandler:
                             else:
                                 logger.info(f"电影 {mediainfo.title} 洗版：旧分数 {movie_history_score} -> 新分数 {current_score}")
 
-                        # 构建转存路径
                         save_dir = f"{self._movie_save_path}/{mediainfo.title} ({mediainfo.year})" if mediainfo.year else f"{self._movie_save_path}/{mediainfo.title}"
                         logger.info(f"转存目标路径: {save_dir}")
 
-                        # 执行转存
                         success = self._p115_manager.transfer_file(
                             share_url=share_url,
                             file_id=matched_file.get("id"),
                             save_path=save_dir
                         )
 
-                        # 记录历史
                         history_item = {
                             "title": mediainfo.title,
                             "year": mediainfo.year,
@@ -241,6 +239,7 @@ class SyncHandler:
                             "file_name": file_name,
                             "filter_score": current_score,
                             "perfect_match": is_perfect,
+                            "pan_type": pan_type,
                             "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         }
                         history.append(history_item)
@@ -252,7 +251,6 @@ class SyncHandler:
                             score_info = f"(分数:{current_score}, 完美匹配:{is_perfect})" if subscribe_filter.has_filters() else ""
                             logger.info(f"成功转存电影：{mediainfo.title} {score_info}")
 
-                            # 收集转存详情用于通知
                             transfer_details.append({
                                 "type": "电影",
                                 "title": mediainfo.title,
@@ -261,7 +259,6 @@ class SyncHandler:
                                 "file_name": file_name
                             })
 
-                            # 添加下载历史记录
                             try:
                                 DownloadHistoryOper().add(
                                     path=save_dir,
@@ -286,20 +283,59 @@ class SyncHandler:
                             except Exception as e:
                                 logger.warning(f"记录下载历史失败：{e}")
 
-                            # 电影转存成功后完成订阅
                             self._subscribe_handler.check_and_finish_subscribe(
                                 subscribe=subscribe,
                                 mediainfo=mediainfo,
                                 success_episodes=[1]
                             )
-                            # 订阅完成，清除该订阅的历史积分记录
                             if hasattr(self._search_handler, 'clear_sub_points'):
                                 self._search_handler.clear_sub_points(sub_key)
                         else:
                             logger.error(f"转存失败：{mediainfo.title}")
+                    else:
+                        if pan_type in ("magnet", "ed2k"):
+                            logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...")
+                            success = self._p115_manager.add_offline_task(share_url)
+                            
+                            history_item = {
+                                "title": mediainfo.title,
+                                "year": mediainfo.year,
+                                "type": "电影",
+                                "status": "成功" if success else "失败",
+                                "share_url": share_url,
+                                "file_name": resource_title,
+                                "filter_score": 0,
+                                "perfect_match": False,
+                                "pan_type": pan_type,
+                                "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            }
+                            history.append(history_item)
+                            
+                            if success:
+                                transferred_count += 1
+                                movie_transferred = True
+                                logger.info(f"成功添加离线下载任务：{mediainfo.title} ({pan_type})")
+                                
+                                transfer_details.append({
+                                    "type": "电影",
+                                    "title": mediainfo.title,
+                                    "year": mediainfo.year,
+                                    "image": mediainfo.get_poster_image(),
+                                    "file_name": f"[离线下载] {resource_title}"
+                                })
+                                
+                                self._subscribe_handler.check_and_finish_subscribe(
+                                    subscribe=subscribe,
+                                    mediainfo=mediainfo,
+                                    success_episodes=[1]
+                                )
+                                if hasattr(self._search_handler, 'clear_sub_points'):
+                                    self._search_handler.clear_sub_points(sub_key)
+                            else:
+                                logger.error(f"离线下载任务添加失败：{mediainfo.title}")
 
                 except Exception as e:
-                    logger.error(f"处理分享链接出错：{share_url}, 错误：{str(e)}")
+                    logger.error(f"处理资源出错：{share_url[:50]}, 错误：{str(e)}")
                     continue
 
         except Exception as e:
@@ -558,7 +594,7 @@ class SyncHandler:
                         logger.info(f"[{source.upper()}] 未找到资源，已无更多可用源")
                     continue
 
-                logger.info(f"[{source.upper()}] 找到 {len(p115_results)} 个 115 网盘资源")
+                logger.info(f"[{source.upper()}] 找到 {len(p115_results)} 个资源")
 
                 # 遍历搜索结果
                 for resource in p115_results:
@@ -568,6 +604,7 @@ class SyncHandler:
 
                     share_url = resource.get("url", "")
                     resource_title = resource.get("title", "")
+                    pan_type = resource.get("pan_type", "115")
 
                     # 检查是否是刚搜索出尚未真正解锁的延期解锁 HDHive 资源
                     if resource.get("need_unlock") and not share_url:
@@ -586,180 +623,213 @@ class SyncHandler:
                     if not share_url:
                         continue
 
-                    logger.info(f"检查分享：{resource_title} - {share_url}")
+                    logger.info(f"检查资源 ({pan_type})：{resource_title} - {share_url[:50]}...")
 
                     try:
-                        # 检查分享链接是否有效
-                        share_status = self._p115_manager.check_share_status(share_url)
-                        if not share_status.is_valid:
-                            logger.warning(f"分享链接无效：{share_url}，原因：{share_status.status_text}")
-                            continue
+                        if pan_type == "115":
+                            share_status = self._p115_manager.check_share_status(share_url)
+                            if not share_status.is_valid:
+                                logger.warning(f"分享链接无效：{share_url}，原因：{share_status.status_text}")
+                                continue
 
-                        # 列出分享内容
-                        share_files = self._p115_manager.list_share_files(
-                            share_url,
-                            target_season=(season if self._skip_other_season_dirs else None)
-                        )
-                        if not share_files:
-                            logger.info(f"分享链接无内容：{share_url}")
-                            continue
+                            share_files = self._p115_manager.list_share_files(
+                                share_url,
+                                target_season=(season if self._skip_other_season_dirs else None)
+                            )
+                            if not share_files:
+                                logger.info(f"分享链接无内容：{share_url}")
+                                continue
 
-                        logger.info(f"分享包含 {len(share_files)} 个文件/目录")
+                            logger.info(f"分享包含 {len(share_files)} 个文件/目录")
 
-                        # 收集该分享中所有匹配的文件
-                        matched_items = []
+                            matched_items = []
 
-                        for episode in missing_episodes[:]:
-                            matched_file = FileMatcher.match_episode_file(
-                                share_files,
-                                mediainfo.title,
-                                season,
-                                episode,
-                                subscribe_filter=subscribe_filter
+                            for episode in missing_episodes[:]:
+                                matched_file = FileMatcher.match_episode_file(
+                                    share_files,
+                                    mediainfo.title,
+                                    season,
+                                    episode,
+                                    subscribe_filter=subscribe_filter
+                                )
+
+                                if matched_file:
+                                    file_name = matched_file.get('name', '')
+                                    logger.info(f"找到匹配文件：{file_name} -> E{episode:02d}")
+
+                                    _, current_score = subscribe_filter.match(file_name) if subscribe_filter.has_filters() else (True, 0)
+                                    is_perfect = subscribe_filter.is_perfect_match(file_name) if subscribe_filter.has_filters() else True
+
+                                    is_upgrade = False
+                                    if is_best_version and episode in episode_history_scores:
+                                        old_score = episode_history_scores[episode]
+                                        if current_score <= old_score:
+                                            logger.info(f"E{episode:02d} 已有分数 {old_score}，当前 {current_score}，跳过")
+                                            continue
+                                        else:
+                                            logger.info(f"E{episode:02d} 洗版：旧分数 {old_score} -> 新分数 {current_score}")
+                                            is_upgrade = True
+
+                                    matched_items.append({
+                                        "file": matched_file,
+                                        "episode": episode,
+                                        "score": current_score,
+                                        "is_perfect": is_perfect,
+                                        "is_upgrade": is_upgrade
+                                    })
+
+                            if not matched_items:
+                                logger.info(f"该分享未匹配到 S{season} 的任何缺失剧集，可能是季数不匹配或文件名无法识别")
+                                continue
+
+                            remaining_quota = self._max_transfer_per_sync - transferred_count
+                            if len(matched_items) > remaining_quota:
+                                logger.info(f"匹配 {len(matched_items)} 集，但受配额限制仅转存 {remaining_quota} 集")
+                                matched_items = matched_items[:remaining_quota]
+
+                            file_ids = [item["file"]["id"] for item in matched_items]
+                            logger.info(f"准备批量转存 {len(file_ids)} 个文件到: {save_dir}")
+
+                            success_ids, failed_ids = self._p115_manager.transfer_files_batch(
+                                share_url=share_url,
+                                file_ids=file_ids,
+                                save_path=save_dir,
+                                batch_size=self._batch_size
                             )
 
-                            if matched_file:
-                                file_name = matched_file.get('name', '')
-                                logger.info(f"找到匹配文件：{file_name} -> E{episode:02d}")
+                            success_id_set = set(success_ids)
+                            batch_success_episodes = []
 
-                                _, current_score = subscribe_filter.match(file_name) if subscribe_filter.has_filters() else (True, 0)
-                                is_perfect = subscribe_filter.is_perfect_match(file_name) if subscribe_filter.has_filters() else True
+                            for item in matched_items:
+                                file_id = item["file"]["id"]
+                                episode = item["episode"]
+                                file_name = item["file"]["name"]
+                                current_score = item["score"]
+                                is_perfect = item["is_perfect"]
+                                is_upgrade = item["is_upgrade"]
+                                success = file_id in success_id_set
 
-                                is_upgrade = False
-                                if is_best_version and episode in episode_history_scores:
-                                    old_score = episode_history_scores[episode]
-                                    if current_score <= old_score:
-                                        logger.info(f"E{episode:02d} 已有分数 {old_score}，当前 {current_score}，跳过")
-                                        continue
-                                    else:
-                                        logger.info(f"E{episode:02d} 洗版：旧分数 {old_score} -> 新分数 {current_score}")
-                                        is_upgrade = True
-
-                                matched_items.append({
-                                    "file": matched_file,
+                                history_item = {
+                                    "title": mediainfo.title,
+                                    "season": season,
                                     "episode": episode,
-                                    "score": current_score,
-                                    "is_perfect": is_perfect,
-                                    "is_upgrade": is_upgrade
-                                })
+                                    "type": "电视剧",
+                                    "status": "成功" if success else "失败",
+                                    "share_url": share_url,
+                                    "file_name": file_name,
+                                    "filter_score": current_score,
+                                    "perfect_match": is_perfect,
+                                    "pan_type": pan_type,
+                                    "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                }
+                                history.append(history_item)
 
-                        if not matched_items:
-                            logger.info(f"该分享未匹配到 S{season} 的任何缺失剧集，可能是季数不匹配或文件名无法识别")
-                            continue
+                                if success:
+                                    transferred_count += 1
+                                    episode_history_scores[episode] = current_score
 
-                        # 检查转存配额限制
-                        remaining_quota = self._max_transfer_per_sync - transferred_count
-                        if len(matched_items) > remaining_quota:
-                            logger.info(f"匹配 {len(matched_items)} 集，但受配额限制仅转存 {remaining_quota} 集")
-                            matched_items = matched_items[:remaining_quota]
+                                    if episode in missing_episodes:
+                                        missing_episodes.remove(episode)
 
-                        # 批量转存
-                        file_ids = [item["file"]["id"] for item in matched_items]
-                        logger.info(f"准备批量转存 {len(file_ids)} 个文件到: {save_dir}")
+                                    if not is_upgrade:
+                                        success_episodes.append(episode)
 
-                        success_ids, failed_ids = self._p115_manager.transfer_files_batch(
-                            share_url=share_url,
-                            file_ids=file_ids,
-                            save_path=save_dir,
-                            batch_size=self._batch_size
-                        )
+                                    score_info = f"(分数:{current_score}, 完美匹配:{is_perfect})" if subscribe_filter.has_filters() else ""
+                                    upgrade_info = " [洗版升级]" if is_upgrade else ""
+                                    logger.info(f"成功转存：{mediainfo.title} S{season:02d}E{episode:02d} {score_info}{upgrade_info}")
 
-                        success_id_set = set(success_ids)
-                        batch_success_episodes = []
+                                    existing_detail = next(
+                                        (d for d in transfer_details
+                                         if d.get("title") == mediainfo.title and d.get("season") == season),
+                                        None
+                                    )
+                                    if existing_detail:
+                                        existing_detail["episodes"].append(episode)
+                                    else:
+                                        transfer_details.append({
+                                            "type": "电视剧",
+                                            "title": mediainfo.title,
+                                            "year": mediainfo.year,
+                                            "season": season,
+                                            "episodes": [episode],
+                                            "image": mediainfo.get_poster_image()
+                                        })
 
-                        # 处理结果
-                        for item in matched_items:
-                            file_id = item["file"]["id"]
-                            episode = item["episode"]
-                            file_name = item["file"]["name"]
-                            current_score = item["score"]
-                            is_perfect = item["is_perfect"]
-                            is_upgrade = item["is_upgrade"]
-                            success = file_id in success_id_set
-
-                            history_item = {
-                                "title": mediainfo.title,
-                                "season": season,
-                                "episode": episode,
-                                "type": "电视剧",
-                                "status": "成功" if success else "失败",
-                                "share_url": share_url,
-                                "file_name": file_name,
-                                "filter_score": current_score,
-                                "perfect_match": is_perfect,
-                                "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            }
-                            history.append(history_item)
-
-                            if success:
-                                transferred_count += 1
-                                episode_history_scores[episode] = current_score
-
-                                if episode in missing_episodes:
-                                    missing_episodes.remove(episode)
-
-                                if not is_upgrade:
-                                    success_episodes.append(episode)
-
-                                score_info = f"(分数:{current_score}, 完美匹配:{is_perfect})" if subscribe_filter.has_filters() else ""
-                                upgrade_info = " [洗版升级]" if is_upgrade else ""
-                                logger.info(f"成功转存：{mediainfo.title} S{season:02d}E{episode:02d} {score_info}{upgrade_info}")
-
-                                # 收集转存详情
-                                existing_detail = next(
-                                    (d for d in transfer_details
-                                     if d.get("title") == mediainfo.title and d.get("season") == season),
-                                    None
-                                )
-                                if existing_detail:
-                                    existing_detail["episodes"].append(episode)
+                                    batch_success_episodes.append(episode)
                                 else:
+                                    logger.error(f"转存失败：{mediainfo.title} S{season:02d}E{episode:02d}")
+
+                            if batch_success_episodes:
+                                try:
+                                    episodes_str = StringUtils.format_ep(batch_success_episodes)
+                                    DownloadHistoryOper().add(
+                                        path=save_dir,
+                                        type=mediainfo.type.value,
+                                        title=mediainfo.title,
+                                        year=mediainfo.year,
+                                        tmdbid=mediainfo.tmdb_id,
+                                        imdbid=mediainfo.imdb_id,
+                                        tvdbid=mediainfo.tvdb_id,
+                                        doubanid=mediainfo.douban_id,
+                                        seasons=f"S{season:02d}",
+                                        episodes=episodes_str,
+                                        image=mediainfo.get_poster_image(),
+                                        downloader="115网盘",
+                                        download_hash=share_url,
+                                        torrent_name=resource_title,
+                                        torrent_site="115网盘",
+                                        username="P115StrgmSub",
+                                        date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                        note={"source": f"Subscribe|{subscribe.name}", "share_url": share_url}
+                                    )
+                                    logger.debug(f"已记录 {mediainfo.title} S{season:02d} {episodes_str} 下载历史")
+                                except Exception as e:
+                                    logger.warning(f"记录下载历史失败：{e}")
+
+                            if not missing_episodes:
+                                break
+                        else:
+                            if pan_type in ("magnet", "ed2k"):
+                                logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...")
+                                success = self._p115_manager.add_offline_task(share_url)
+                                
+                                history_item = {
+                                    "title": mediainfo.title,
+                                    "season": season,
+                                    "episode": 0,
+                                    "type": "电视剧",
+                                    "status": "成功" if success else "失败",
+                                    "share_url": share_url,
+                                    "file_name": resource_title,
+                                    "filter_score": 0,
+                                    "perfect_match": False,
+                                    "pan_type": pan_type,
+                                    "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                }
+                                history.append(history_item)
+                                
+                                if success:
+                                    transferred_count += 1
+                                    logger.info(f"成功添加离线下载任务：{mediainfo.title} S{season} ({pan_type})")
+                                    
                                     transfer_details.append({
                                         "type": "电视剧",
                                         "title": mediainfo.title,
                                         "year": mediainfo.year,
                                         "season": season,
-                                        "episodes": [episode],
+                                        "episodes": list(missing_episodes),
                                         "image": mediainfo.get_poster_image()
                                     })
-
-                                batch_success_episodes.append(episode)
-                            else:
-                                logger.error(f"转存失败：{mediainfo.title} S{season:02d}E{episode:02d}")
-
-                        # 记录下载历史
-                        if batch_success_episodes:
-                            try:
-                                episodes_str = StringUtils.format_ep(batch_success_episodes)
-                                DownloadHistoryOper().add(
-                                    path=save_dir,
-                                    type=mediainfo.type.value,
-                                    title=mediainfo.title,
-                                    year=mediainfo.year,
-                                    tmdbid=mediainfo.tmdb_id,
-                                    imdbid=mediainfo.imdb_id,
-                                    tvdbid=mediainfo.tvdb_id,
-                                    doubanid=mediainfo.douban_id,
-                                    seasons=f"S{season:02d}",
-                                    episodes=episodes_str,
-                                    image=mediainfo.get_poster_image(),
-                                    downloader="115网盘",
-                                    download_hash=share_url,
-                                    torrent_name=resource_title,
-                                    torrent_site="115网盘",
-                                    username="P115StrgmSub",
-                                    date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                                    note={"source": f"Subscribe|{subscribe.name}", "share_url": share_url}
-                                )
-                                logger.debug(f"已记录 {mediainfo.title} S{season:02d} {episodes_str} 下载历史")
-                            except Exception as e:
-                                logger.warning(f"记录下载历史失败：{e}")
-
-                        if not missing_episodes:
-                            break
+                                    
+                                    success_episodes.extend(list(missing_episodes))
+                                    missing_episodes.clear()
+                                    
+                                    break
+                                else:
+                                    logger.error(f"离线下载任务添加失败：{mediainfo.title} S{season}")
 
                     except Exception as e:
-                        logger.error(f"处理分享链接出错：{share_url}, 错误：{str(e)}")
+                        logger.error(f"处理资源出错：{share_url[:50]}, 错误：{str(e)}")
                         continue
 
                 # 当前源处理完成
