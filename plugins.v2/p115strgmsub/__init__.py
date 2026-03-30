@@ -34,11 +34,11 @@ from .utils import (
 lock = Lock()
 
 
-class P115StrgmSub(_PluginBase):
+class P115StrgmSubV2(_PluginBase):
     """115网盘订阅追更插件"""
 
     # 插件名称
-    plugin_name = "115网盘订阅追更"
+    plugin_name = "115网盘订阅追更v2"
     # 插件描述
     plugin_desc = "结合MoviePilot订阅功能，自动搜索115网盘资源并转存缺失的电影和剧集。"
     # 插件图标
@@ -50,7 +50,7 @@ class P115StrgmSub(_PluginBase):
     # 作者主页
     author_url = "https://github.com/mrtian2016"
     # 插件配置项ID前缀
-    plugin_config_prefix = "p115strgmsub_"
+    plugin_config_prefix = "p115strgmsubv2_"  
     plugin_order = 20
     auth_level = 1
 
