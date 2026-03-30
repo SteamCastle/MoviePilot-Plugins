@@ -216,12 +216,14 @@ class UIConfig:
                     {
                         'component': 'VRow',
                         'content': [
-                            {'component': 'VCol', 'props': {'cols': 6, 'md': 3},
+                            {'component': 'VCol', 'props': {'cols': 6, 'md': 2},
                              'content': [{'component': 'VSwitch', 'props': {'model': 'pansou_enabled', 'label': '启用 PanSou'}}]},
                             {'component': 'VCol', 'props': {'cols': 12, 'md': 3},
                              'content': [{'component': 'VTextField', 'props': {'model': 'pansou_url', 'label': 'PanSou API 地址', 'placeholder': 'https://your-pansou-api.com'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 6},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'pansou_channels', 'label': 'TG 搜索频道', 'placeholder': '频道,用逗号分隔'}}]}
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
+                             'content': [{'component': 'VTextField', 'props': {'model': 'pansou_channels', 'label': 'TG 搜索频道', 'placeholder': '频道,用逗号分隔'}}]},
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 3},
+                             'content': [{'component': 'VTextField', 'props': {'model': 'pansou_cloud_types', 'label': '网盘类型', 'placeholder': '115,quark,aliyun'}}]}
                         ]
                     },
                     # PanSou 认证
@@ -358,6 +360,7 @@ class UIConfig:
             "pansou_password": "",
             "pansou_auth_enabled": False,
             "pansou_channels": "QukanMovie",
+            "pansou_cloud_types": "",
             "nullbr_enabled": False,
             "nullbr_appid": "",
             "nullbr_api_key": "",
