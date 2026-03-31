@@ -559,6 +559,12 @@ class SearchHandler:
         供 SyncHandler 在每次同步任务开始时调用
         仅重置全局积分账本（单订阅的从持久化数据加载）
         """
+        # 未启用 HDHive 时完全跳过积分账本逻辑，避免产生误导性的 HDHive 日志
+        if not self._hdhive_enabled:
+            self._current_spent_points = 0
+            self._sub_spent_points = 0
+            self._current_sub_key = ""
+            return
         self._current_spent_points = 0
         self._sub_spent_points = 0
         self._current_sub_key = ""
@@ -570,6 +576,11 @@ class SearchHandler:
         从持久化数据中加载该订阅的历史累计花费
         :param sub_key: 订阅唯一标识，如 "逐玉_S1"
         """
+        # 未启用 HDHive 时不加载/记录任何积分历史，也不打印 HDHive 相关日志
+        if not self._hdhive_enabled:
+            self._current_sub_key = sub_key
+            self._sub_spent_points = 0
+            return
         self._current_sub_key = sub_key
         if sub_key:
             history = self._load_sub_points_history()

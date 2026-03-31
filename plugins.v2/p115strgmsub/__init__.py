@@ -548,7 +548,6 @@ class P115StrgmSub(_PluginBase):
     def init_plugin(self, config: dict = None):
         self.stop_service()
         self._ensure_toggle_scheduler()
-        download_so_file(Path(__file__).parent / "lib")
 
         old_block = bool(self._block_system_subscribe)
 
@@ -615,6 +614,10 @@ class P115StrgmSub(_PluginBase):
             )
 
             self._block_system_subscribe = bool(config.get("block_system_subscribe", False))
+
+        # 只有启用 HDHive 时才需要下载对应的扩展模块
+        if self._hdhive_enabled:
+            download_so_file(Path(__file__).parent / "lib")
 
         # 初始化客户端/handlers
         self._init_clients()
