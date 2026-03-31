@@ -244,20 +244,19 @@ class SearchHandler:
         mediainfo: MediaInfo,
     ) -> List[Dict]:
         """
-        仅使用 PanSou 搜索电视剧资源（带降级关键词策略）
+        仅使用 PanSou 搜索电影资源（带降级关键词策略）
 
         :param mediainfo: 媒体信息
-        :param season: 季号
         :return: 115网盘资源列表
         """
         if not self._pansou_client:
             logger.warning(f"PanSou 客户端未初始化，跳过 PanSou 查询")
             return []
 
-        # 电视剧使用降级搜索策略
+        # 电影搜索策略：先搜不带年份，无结果再搜带年份
         search_keywords = [
+            mediainfo.title,
             f"{mediainfo.title} {mediainfo.year}",
-            mediainfo.title
         ]
 
         for keyword in search_keywords:

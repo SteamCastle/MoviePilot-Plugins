@@ -294,8 +294,9 @@ class SyncHandler:
                             logger.error(f"转存失败：{mediainfo.title}")
                     else:
                         if pan_type in ("magnet", "ed2k"):
-                            logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...")
-                            success = self._p115_manager.add_offline_task(share_url)
+                            save_dir = f"{self._movie_save_path}/{mediainfo.title} ({mediainfo.year})" if mediainfo.year else f"{self._movie_save_path}/{mediainfo.title}"
+                            logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...，保存到: {save_dir}")
+                            success = self._p115_manager.add_offline_task(share_url, save_path=save_dir)
                             
                             history_item = {
                                 "title": mediainfo.title,
@@ -790,8 +791,8 @@ class SyncHandler:
                                 break
                         else:
                             if pan_type in ("magnet", "ed2k"):
-                                logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...")
-                                success = self._p115_manager.add_offline_task(share_url)
+                                logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...，保存到: {save_dir}")
+                                success = self._p115_manager.add_offline_task(share_url, save_path=save_dir)
                                 
                                 history_item = {
                                     "title": mediainfo.title,

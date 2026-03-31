@@ -14,6 +14,9 @@ from app.log import logger
 class PanSouClient:
     """网盘搜索客户端"""
 
+    # 默认排除的枪版关键词
+    DEFAULT_EXCLUDE_KEYWORDS = ["TC1080", "TC", "枪版", "抢先版", "TS", "CAM", "HDTC"]
+
     # 网盘类型中文名映射
     TYPE_NAMES = {
         "baidu": "百度网盘",
@@ -113,7 +116,8 @@ class PanSouClient:
             keyword: str,
             cloud_types: List[str] = None,
             channels: List[str] = None,
-            limit: int = 10
+            limit: int = 10,
+            exclude_keywords: List[str] = None
     ) -> Dict[str, Any]:
         """
         搜索网盘资源
@@ -122,6 +126,7 @@ class PanSouClient:
         :param cloud_types: 网盘类型列表，如 ["115", "quark"]
         :param channels: TG搜索频道列表 
         :param limit: 每种网盘类型返回的结果数量限制
+        :param exclude_keywords: 排除关键词列表，默认排除枪版资源
         :return: 搜索结果
         """
         if not keyword or not keyword.strip():
@@ -168,6 +173,13 @@ class PanSouClient:
 
             if cloud_types:
                 payload["cloud_types"] = cloud_types
+
+            # 添加过滤参数，排除枪版资源
+            exclude_list = exclude_keywords if exclude_keywords is not None else self.DEFAULT_EXCLUDE_KEYWORDS
+            if exclude_list:
+                payload["filter"] = {
+                    "exclude": exclude_list
+                }
 
             logger.info(f"PanSou 搜索: {payload}")
             self._api_call_count += 1
@@ -218,6 +230,12 @@ class PanSouClient:
 
                 for link in links:
                     pan_type = link.get("type", "unknown")
+                    
+                    # 客户端二次过滤：如果指定了 cloud_types，只保留匹配的类型
+                    if cloud_types and pan_type not in cloud_types:
+                        logger.debug(f"过滤非目标网盘类型: {pan_type} (目标: {cloud_types})")
+                        continue
+                    
                     type_display = self.TYPE_NAMES.get(pan_type, pan_type)
 
                     if type_display not in grouped_results:
