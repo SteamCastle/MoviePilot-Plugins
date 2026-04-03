@@ -239,18 +239,18 @@ class SearchHandler:
         logger.info(f"Nullbr 未找到资源")
         return []
 
-    def _check_tmdb_multiple_results(self, title: str, media_type: MediaType) -> bool:
+    def _check_tmdb_multiple_results(self, title: str) -> bool:
         """
-        检查 TMDB 是否有多个同名资源
+        检查 TMDB 是否有多个同名资源（电影+电视剧混合统计）
 
         :param title: 媒体标题
-        :param media_type: 媒体类型
         :return: True 表示有多个结果，需要严格搜索
         """
         try:
-            from app.chain.tmdb import TmdbChain
-            tmdb_chain = TmdbChain()
-            results = tmdb_chain.search(title=title, mtype=media_type)
+            from app.modules.themoviedb.tmdbapi import TmdbApi
+            tmdb_api = TmdbApi()
+            # 直接搜索 TMDB，获取所有匹配结果（电影+电视剧）
+            results = tmdb_api.search_multiis(title)
             if results and len(results) > 1:
                 logger.info(f"TMDB 搜索 '{title}' 发现 {len(results)} 个同名结果，将使用严格搜索（带年份）")
                 return True
@@ -275,7 +275,7 @@ class SearchHandler:
             return []
 
         # 检查 TMDB 是否有多个同名结果
-        need_strict_search = self._check_tmdb_multiple_results(mediainfo.title, MediaType.MOVIE)
+        need_strict_search = self._check_tmdb_multiple_results(mediainfo.title)
 
         if need_strict_search and mediainfo.year:
             # 多个结果，必须带年份严格搜索
