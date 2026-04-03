@@ -4,11 +4,12 @@
     "release": true,
     "description": "结合MoviePilot订阅功能，自动搜索115网盘资源并转存缺失剧集。",
     "labels": "订阅,115网盘",
-    "version": "1.3.8",
+    "version": "1.3.9",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png",
     "author": "mrtian2016",
     "level": 1,
     "history": {
+      "v1.3.9": "1. 电影PanSou搜索支持TMDB多结果严格匹配，同名资源自动带年份搜索避免混淆；",
       "v1.3.8": "1. PanSou搜索添加filter参数，默认排除枪版资源；2. PanSou客户端二次过滤cloud_types确保类型正确；3. 离线下载添加save_path参数保存到正确目录；4. 电影搜索关键词策略调整：默认不带年份搜索；",
       "v1.3.7": "1. 支持多网盘类型搜索(115/magnet/ed2k)；2. 支持离线下载功能；",
       "v1.3.6": "1. 修复HDHive API模式下代理配置问题；",

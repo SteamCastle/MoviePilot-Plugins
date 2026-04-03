@@ -239,12 +239,33 @@ class SearchHandler:
         logger.info(f"Nullbr 未找到资源")
         return []
 
+    def _check_tmdb_multiple_results(self, title: str, media_type: MediaType) -> bool:
+        """
+        检查 TMDB 是否有多个同名资源
+
+        :param title: 媒体标题
+        :param media_type: 媒体类型
+        :return: True 表示有多个结果，需要严格搜索
+        """
+        try:
+            from app.chain.tmdb import TmdbChain
+            tmdb_chain = TmdbChain()
+            results = tmdb_chain.search(title=title, mtype=media_type)
+            if results and len(results) > 1:
+                logger.info(f"TMDB 搜索 '{title}' 发现 {len(results)} 个同名结果，将使用严格搜索（带年份）")
+                return True
+            return False
+        except Exception as e:
+            logger.warning(f"检查 TMDB 多结果失败: {e}，默认使用宽松搜索")
+            return False
+
     def _search_pansou_movie(
         self,
         mediainfo: MediaInfo,
     ) -> List[Dict]:
         """
-        仅使用 PanSou 搜索电影资源（带降级关键词策略）
+        使用 PanSou 搜索电影资源
+        根据 TMDB 是否有多个同名结果决定是否带年份搜索
 
         :param mediainfo: 媒体信息
         :return: 115网盘资源列表
@@ -253,23 +274,23 @@ class SearchHandler:
             logger.warning(f"PanSou 客户端未初始化，跳过 PanSou 查询")
             return []
 
-        # 电影搜索策略：先搜不带年份，无结果再搜带年份
-        search_keywords = [
-            mediainfo.title,
-            f"{mediainfo.title} {mediainfo.year}",
-        ]
+        # 检查 TMDB 是否有多个同名结果
+        need_strict_search = self._check_tmdb_multiple_results(mediainfo.title, MediaType.MOVIE)
 
-        for keyword in search_keywords:
-            logger.info(f"使用 PanSou 搜索电影资源: {mediainfo.title}，关键词: '{keyword}'")
-            results = self._pansou_search(keyword)
-            if results:
-                logger.info(f"PanSou 关键词 '{keyword}' 搜索到 {len(results)} 个结果")
-                return results
-            else:
-                logger.info(f"PanSou 关键词 '{keyword}' 无结果，尝试下一个降级关键词")
+        if need_strict_search and mediainfo.year:
+            # 多个结果，必须带年份严格搜索
+            keyword = f"{mediainfo.title} {mediainfo.year}"
+        else:
+            # 单个结果，不带年份
+            keyword = mediainfo.title
 
-        logger.info(f"PanSou 未找到资源")
-        return []
+        logger.info(f"使用 PanSou 搜索电影资源: {mediainfo.title}，关键词: '{keyword}'")
+        results = self._pansou_search(keyword)
+        if results:
+            logger.info(f"PanSou 搜索到 {len(results)} 个结果")
+        else:
+            logger.info(f"PanSou 未找到资源")
+        return results
 
     def _search_pansou_tv(
         self,
