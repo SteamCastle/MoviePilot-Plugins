@@ -239,71 +239,6 @@ class UIConfig:
                              'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'pansou_password', 'label': 'PanSou 密码', 'type': 'password', 'placeholder': '启用认证时填写'}}]}
                         ]
                     },
-                    # Nullbr说明
-                    {
-                        'component': 'VRow',
-                        'content': [{
-                            'component': 'VCol',
-                            'props': {'cols': 12},
-                            'content': [{'component': 'VAlert', 'props': {'type': 'info', 'variant': 'tonal', 'text': 'Nullbr 资源查询：基于TMDB ID精准查询115网盘资源，准确度更高'}}]
-                        }]
-                    },
-                    # Nullbr 配置
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'nullbr_enabled', 'label': '启用 Nullbr'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'nullbr_appid', 'label': 'Nullbr APP ID', 'placeholder': '请输入 APP ID'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'nullbr_api_key', 'label': 'Nullbr API Key', 'type': 'password', 'placeholder': '请输入 API Key'}}]}
-                        ]
-                    },
-                    # HDHive说明
-                    {
-                        'component': 'VRow',
-                        'content': [{
-                            'component': 'VCol',
-                            'props': {'cols': 12},
-                            'content': [{'component': 'VAlert', 'props': {'type': 'info', 'variant': 'tonal', 'text': 'HDHive资源查询：基于TMDB ID查询115网盘资源。API模式使用API Key查询；Playwright模式使用浏览器模拟获取分享链接（需安装 playwright 和 chromium）'}}]
-                        }]
-                    },
-                    # HDHive 配置
-                    {
-                        'component': 'VRow',
-                        'content': [
-                             {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'hdhive_enabled', 'label': '启用 HDHive'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VSelect', 'props': {'model': 'hdhive_query_mode', 'label': '查询模式',
-                                 'items': [{'title': 'API 模式', 'value': 'api'}, {'title': 'Playwright 模式', 'value': 'playwright'}]}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'hdhive_api_key', 'label': 'HDHive API Key', 'type': 'password', 'placeholder': 'API 模式下需要'}}]}
-                        ]
-                    },
-                    # HDHive 账号密码配置
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'hdhive_username', 'label': 'HDHive 用户名', 'placeholder': 'Playwright 模式下需要'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 5},
-                             'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'hdhive_password', 'label': 'HDHive 密码', 'type': 'password', 'placeholder': 'Playwright 模式下需要'}}]}
-                        ]
-                    },
-                    # HDHive 积分配置
-                    {
-                        'component': 'VRow',
-                        'content': [
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VSwitch', 'props': {'model': 'hdhive_auto_unlock', 'label': '自动解锁资源', 'hint': '关闭时仅查询免费资源'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'hdhive_max_unlock_points', 'label': '累计解锁总预算', 'type': 'number', 'placeholder': '50', 'hint': '一次任务最多允许消耗的积分总和'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'hdhive_max_points_per_sub', 'label': '单订阅解锁预算', 'type': 'number', 'placeholder': '20', 'hint': '处理单个订阅时允许消耗的最大积分'}}]}
-                        ]
-                    },
                     # 风控防护说明
                     {
                         'component': 'VRow',
@@ -362,20 +297,6 @@ class UIConfig:
             "pansou_auth_enabled": False,
             "pansou_channels": "QukanMovie",
             "pansou_cloud_types": ["115"],
-            "nullbr_enabled": False,
-            "nullbr_appid": "",
-            "nullbr_api_key": "",
-            "hdhive_enabled": False,
-            "hdhive_query_mode": "api",
-            "hdhive_api_key": "",
-            "hdhive_auto_unlock": False,
-            "hdhive_max_unlock_points": 50,
-            "hdhive_max_points_per_sub": 20,
-            "hdhive_username": "",
-            "hdhive_password": "",
-            "hdhive_cookie": "",
-            "hdhive_auto_refresh": False,
-            "hdhive_refresh_before": 86400,
             "exclude_subscribes": [],
             "block_system_subscribe": False,
             "max_transfer_per_sync": 50,
@@ -555,7 +476,7 @@ class UIConfig:
                                     'text': '立即搜索',
                                     'events': {
                                         'click': {
-                                            'api': f'/plugin/P115StrgmSub/sync_subscribes?apikey={settings.API_TOKEN}',
+                                            'api': f'/plugin/SubTransfer115/sync_subscribes?apikey={settings.API_TOKEN}',
                                             'method': 'get'
                                         }
                                     }
@@ -570,7 +491,7 @@ class UIConfig:
                                     'text': '清空历史记录',
                                     'events': {
                                         'click': {
-                                            'api': f'/plugin/P115StrgmSub/clear_history?apikey={settings.API_TOKEN}',
+                                            'api': f'/plugin/SubTransfer115/clear_history?apikey={settings.API_TOKEN}',
                                             'method': 'post'
                                         }
                                     }
