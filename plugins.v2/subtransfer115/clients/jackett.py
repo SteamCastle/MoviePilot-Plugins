@@ -21,9 +21,11 @@ class JackettClient:
         base_url: str,
         apikey: str,
         proxy: Optional[str] = None,
+        tag: Optional[str] = None,
     ):
         self._base_url = base_url.rstrip("/")
         self._apikey = apikey
+        self._tag = tag
         self._api_call_count = 0
 
         self._session = requests.Session()
@@ -53,6 +55,8 @@ class JackettClient:
             "q": keyword,
             "apikey": self._apikey,
         }
+        if self._tag:
+            params["tag"] = self._tag
 
         try:
             self._api_call_count += 1

@@ -4,11 +4,12 @@
     "release": true,
     "description": "结合MoviePilot订阅功能，通过PanSou搜索115网盘资源并转存缺失剧集。",
     "labels": "订阅,115网盘",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png",
     "author": "SteamCastle",
     "level": 1,
     "history": {
+      "v1.0.2": "1. Jackett 搜索支持按标签过滤 Indexer，避免搜索不必要的索引器；",
       "v1.0.1": "1. 新增 Jackett 搜索源支持，支持种子资源搜索并添加为115离线下载任务；",
       "v1.0.0": "1. 重构插件更名为 SubTransfer115；2. 移除 Nullbr 和 HDHive，简化为纯 PanSou 搜索；"
     }

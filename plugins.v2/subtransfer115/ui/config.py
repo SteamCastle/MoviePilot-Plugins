@@ -257,10 +257,12 @@ class UIConfig:
                         'content': [
                             {'component': 'VCol', 'props': {'cols': 6, 'md': 2},
                              'content': [{'component': 'VSwitch', 'props': {'model': 'jackett_enabled', 'label': '启用 Jackett'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 5},
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 4},
                              'content': [{'component': 'VTextField', 'props': {'model': 'jackett_url', 'label': 'Jackett 地址', 'placeholder': 'http://localhost:9117'}}]},
-                            {'component': 'VCol', 'props': {'cols': 12, 'md': 5},
-                             'content': [{'component': 'VTextField', 'props': {'model': 'jackett_apikey', 'label': 'Jackett API Key', 'type': 'password', 'placeholder': '从 Jackett Web UI 右上角获取'}}]}
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 3},
+                             'content': [{'component': 'VTextField', 'props': {'model': 'jackett_apikey', 'label': 'Jackett API Key', 'type': 'password', 'placeholder': '从 Jackett Web UI 右上角获取'}}]},
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 3},
+                             'content': [{'component': 'VTextField', 'props': {'model': 'jackett_tag', 'label': 'Jackett 标签', 'placeholder': '限定搜索的 Indexer 标签', 'hint': '在 Jackett 中为 Indexer 设置标签后，填写标签名可仅搜索已打标签的 Indexer，留空则搜索全部', 'persistent-hint': True, 'clearable': True}}]}
                         ]
                     },
                     # 风控防护说明
@@ -324,6 +326,7 @@ class UIConfig:
             "jackett_enabled": False,
             "jackett_url": "http://localhost:9117",
             "jackett_apikey": "",
+            "jackett_tag": "",
             "exclude_subscribes": [],
             "block_system_subscribe": False,
             "max_transfer_per_sync": 50,

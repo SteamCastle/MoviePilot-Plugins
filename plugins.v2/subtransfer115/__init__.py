@@ -34,7 +34,7 @@ class SubTransfer115(_PluginBase):
     plugin_name = "SubTransfer115"
     plugin_desc = "结合MoviePilot订阅功能，通过PanSou/Jackett搜索115网盘资源并转存缺失的电影和剧集。"
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png"
-    plugin_version = "1.0.1"
+    plugin_version = "1.0.2"
     plugin_author = "SteamCastle"
     author_url = "https://github.com/SteamCastle"
     plugin_config_prefix = "subtransfer115_"
@@ -61,6 +61,7 @@ class SubTransfer115(_PluginBase):
     _jackett_enabled: bool = False
     _jackett_url: str = ""
     _jackett_apikey: str = ""
+    _jackett_tag: str = ""
 
     _save_path: str = "/我的接收/MoviePilot/TV"
     _movie_save_path: str = "/我的接收/MoviePilot/Movie"
@@ -439,6 +440,7 @@ class SubTransfer115(_PluginBase):
             self._jackett_enabled = config.get("jackett_enabled", False)
             self._jackett_url = config.get("jackett_url", "")
             self._jackett_apikey = config.get("jackett_apikey", "")
+            self._jackett_tag = config.get("jackett_tag", "")
 
             self._save_path = config.get("save_path", "/我的接收/MoviePilot/TV")
             self._movie_save_path = config.get("movie_save_path", "/我的接收/MoviePilot/Movie")
@@ -509,7 +511,8 @@ class SubTransfer115(_PluginBase):
             self._jackett_client = JackettClient(
                 base_url=self._jackett_url,
                 apikey=self._jackett_apikey,
-                proxy=proxy
+                proxy=proxy,
+                tag=self._jackett_tag or None,
             )
             logger.info("Jackett 客户端已初始化")
 
@@ -584,6 +587,7 @@ class SubTransfer115(_PluginBase):
             "jackett_enabled": self._jackett_enabled,
             "jackett_url": self._jackett_url,
             "jackett_apikey": self._jackett_apikey,
+            "jackett_tag": self._jackett_tag,
             "exclude_subscribes": self._exclude_subscribes,
             "block_system_subscribe": self._block_system_subscribe,
             "max_transfer_per_sync": self._max_transfer_per_sync,
