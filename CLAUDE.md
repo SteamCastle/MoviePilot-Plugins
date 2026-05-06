@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-MoviePilot 插件项目，SubTransfer115 插件通过 PanSou 搜索 115 网盘资源并转存到个人网盘，配合 STRM 助手实现完整的自动化追剧流程。
+MoviePilot 插件项目，SubTransfer115 插件通过 PanSou / Jackett 搜索 115 网盘资源和种子资源并转存到个人网盘，配合 STRM 助手实现完整的自动化追剧流程。
 
 ## Plugin Development
 

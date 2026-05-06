@@ -416,18 +416,18 @@ class SyncHandler:
                 logger.info(f"已达单次同步上限 {self._max_transfer_per_sync}，剩余 {len(missing_episodes)} 集将在下次同步处理")
                 return transferred_count
 
-            logger.info(f"[PANSOU] 开始搜索 {mediainfo.title} S{season}（缺失: {len(missing_episodes)} 集）")
+            logger.info(f"开始搜索 {mediainfo.title} S{season}（缺失: {len(missing_episodes)} 集）")
 
-            p115_results = self._search_handler.search_single_source(
-                source="pansou", mediainfo=mediainfo,
+            p115_results = self._search_handler.search_resources(
+                mediainfo=mediainfo,
                 media_type=MediaType.TV, season=season
             )
 
             if not p115_results:
-                logger.info(f"[PANSOU] 未找到资源")
+                logger.info(f"未找到资源")
                 return transferred_count
 
-            logger.info(f"[PANSOU] 找到 {len(p115_results)} 个资源")
+            logger.info(f"找到 {len(p115_results)} 个资源")
 
             for resource in p115_results:
                 if transferred_count >= self._max_transfer_per_sync:

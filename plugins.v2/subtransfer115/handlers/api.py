@@ -18,7 +18,8 @@ class ApiHandler:
         only_115: bool = True,
         save_path: str = "",
         get_data_func: Callable = None,
-        save_data_func: Callable = None
+        save_data_func: Callable = None,
+        jackett_client=None,
     ):
         """
         初始化 API 处理器
@@ -29,6 +30,7 @@ class ApiHandler:
         :param save_path: 默认转存目录
         :param get_data_func: 获取数据的函数
         :param save_data_func: 保存数据的函数
+        :param jackett_client: Jackett 客户端实例
         """
         self._pansou_client = pansou_client
         self._p115_manager = p115_manager
@@ -36,6 +38,7 @@ class ApiHandler:
         self._save_path = save_path
         self._get_data = get_data_func
         self._save_data = save_data_func
+        self._jackett_client = jackett_client
 
     def search(self, keyword: str, apikey: str) -> dict:
         """
@@ -48,11 +51,23 @@ class ApiHandler:
         if apikey != settings.API_TOKEN:
             return {"error": "API密钥错误"}
 
-        if not self._pansou_client:
-            return {"error": "PanSou 客户端未初始化"}
+        results = {}
 
-        cloud_types = ["115"] if self._only_115 else None
-        return self._pansou_client.search(keyword=keyword, cloud_types=cloud_types, limit=10)
+        if self._pansou_client:
+            cloud_types = ["115"] if self._only_115 else None
+            results.update(
+                self._pansou_client.search(keyword=keyword, cloud_types=cloud_types, limit=10).get("results", {})
+            )
+
+        if self._jackett_client:
+            jackett_result = self._jackett_client.search(keyword=keyword, limit=10)
+            if not jackett_result.get("error"):
+                results.update(jackett_result.get("results", {}))
+
+        if not results and not self._pansou_client and not self._jackett_client:
+            return {"error": "搜索客户端未初始化"}
+
+        return {"keyword": keyword, "results": results}
 
     def transfer(self, share_url: str, save_path: str, apikey: str) -> dict:
         """

@@ -1,6 +1,6 @@
 """
 SubTransfer115 插件
-结合MoviePilot订阅功能，通过PanSou搜索115网盘资源并转存缺失剧集
+结合MoviePilot订阅功能，通过PanSou/Jackett搜索115网盘资源并转存缺失剧集
 """
 import datetime
 from pathlib import Path
@@ -21,7 +21,7 @@ from app.log import logger
 from app.plugins import _PluginBase
 from app.schemas.types import EventType, MediaType, NotificationType
 
-from .clients import PanSouClient, P115ClientManager
+from .clients import PanSouClient, P115ClientManager, JackettClient
 from .handlers import SearchHandler, SyncHandler, SubscribeHandler, ApiHandler
 from .ui import UIConfig
 
@@ -32,9 +32,9 @@ class SubTransfer115(_PluginBase):
     """SubTransfer115 插件 - 订阅转存115网盘"""
 
     plugin_name = "SubTransfer115"
-    plugin_desc = "结合MoviePilot订阅功能，通过PanSou搜索115网盘资源并转存缺失的电影和剧集。"
+    plugin_desc = "结合MoviePilot订阅功能，通过PanSou/Jackett搜索115网盘资源并转存缺失的电影和剧集。"
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png"
-    plugin_version = "1.0.0"
+    plugin_version = "1.0.1"
     plugin_author = "SteamCastle"
     author_url = "https://github.com/SteamCastle"
     plugin_config_prefix = "subtransfer115_"
@@ -58,6 +58,10 @@ class SubTransfer115(_PluginBase):
     _pansou_channels: str = "QukanMovie"
     _pansou_cloud_types: List[str] = ["115"]
 
+    _jackett_enabled: bool = False
+    _jackett_url: str = ""
+    _jackett_apikey: str = ""
+
     _save_path: str = "/我的接收/MoviePilot/TV"
     _movie_save_path: str = "/我的接收/MoviePilot/Movie"
     _only_115: bool = True
@@ -76,6 +80,7 @@ class SubTransfer115(_PluginBase):
 
     _pansou_client: Optional[PanSouClient] = None
     _p115_manager: Optional[P115ClientManager] = None
+    _jackett_client: Optional[JackettClient] = None
 
     _search_handler: Optional[SearchHandler] = None
     _subscribe_handler: Optional[SubscribeHandler] = None
@@ -431,6 +436,10 @@ class SubTransfer115(_PluginBase):
             self._pansou_channels = config.get("pansou_channels", "QukanMovie")
             self._pansou_cloud_types = config.get("pansou_cloud_types", ["115"]) or ["115"]
 
+            self._jackett_enabled = config.get("jackett_enabled", False)
+            self._jackett_url = config.get("jackett_url", "")
+            self._jackett_apikey = config.get("jackett_apikey", "")
+
             self._save_path = config.get("save_path", "/我的接收/MoviePilot/TV")
             self._movie_save_path = config.get("movie_save_path", "/我的接收/MoviePilot/Movie")
             self._only_115 = config.get("only_115", True)
@@ -496,6 +505,14 @@ class SubTransfer115(_PluginBase):
                 proxy=proxy
             )
 
+        if self._jackett_enabled and self._jackett_url and self._jackett_apikey:
+            self._jackett_client = JackettClient(
+                base_url=self._jackett_url,
+                apikey=self._jackett_apikey,
+                proxy=proxy
+            )
+            logger.info("Jackett 客户端已初始化")
+
         if self._cookies:
             self._p115_manager = P115ClientManager(cookies=self._cookies)
 
@@ -514,7 +531,9 @@ class SubTransfer115(_PluginBase):
             pansou_enabled=self._pansou_enabled,
             only_115=self._only_115,
             pansou_channels=self._pansou_channels,
-            pansou_cloud_types=self._pansou_cloud_types
+            pansou_cloud_types=self._pansou_cloud_types,
+            jackett_client=self._jackett_client,
+            jackett_enabled=self._jackett_enabled,
         )
 
         self._sync_handler = SyncHandler(
@@ -539,7 +558,8 @@ class SubTransfer115(_PluginBase):
             only_115=self._only_115,
             save_path=self._save_path,
             get_data_func=self.get_data,
-            save_data_func=self.save_data
+            save_data_func=self.save_data,
+            jackett_client=self._jackett_client,
         )
 
     # ------------------ 配置写回 ------------------
@@ -561,6 +581,9 @@ class SubTransfer115(_PluginBase):
             "pansou_auth_enabled": self._pansou_auth_enabled,
             "pansou_channels": self._pansou_channels,
             "pansou_cloud_types": self._pansou_cloud_types,
+            "jackett_enabled": self._jackett_enabled,
+            "jackett_url": self._jackett_url,
+            "jackett_apikey": self._jackett_apikey,
             "exclude_subscribes": self._exclude_subscribes,
             "block_system_subscribe": self._block_system_subscribe,
             "max_transfer_per_sync": self._max_transfer_per_sync,
@@ -647,13 +670,13 @@ class SubTransfer115(_PluginBase):
     # ======================================================================
 
     def _do_sync(self) -> bool:
-        if not self._pansou_enabled:
-            logger.error("PanSou 未启用，无法执行")
+        if not self._search_handler.get_enabled_sources():
+            logger.error("没有启用的搜索源，无法执行")
             if self._notify:
                 self.post_message(
                     mtype=NotificationType.Plugin,
                     title="【SubTransfer115】配置错误",
-                    text="PanSou 未启用，请在设置中启用搜索源。"
+                    text="没有启用的搜索源，请在设置中启用 PanSou 或 Jackett。"
                 )
             return False
 
@@ -686,6 +709,11 @@ class SubTransfer115(_PluginBase):
         try:
             if self._pansou_client:
                 self._pansou_client.reset_api_call_count()
+        except Exception:
+            pass
+        try:
+            if self._jackett_client:
+                self._jackett_client.reset_api_call_count()
         except Exception:
             pass
 

@@ -239,6 +239,30 @@ class UIConfig:
                              'content': [{'component': 'VTextField', 'props': {"clearable": True, 'model': 'pansou_password', 'label': 'PanSou 密码', 'type': 'password', 'placeholder': '启用认证时填写'}}]}
                         ]
                     },
+                    # Jackett说明
+                    {
+                        'component': 'VRow',
+                        'content': [{
+                            'component': 'VCol',
+                            'props': {'cols': 12},
+                            'content': [{
+                                'component': 'VAlert',
+                                'props': {'type': 'info', 'variant': 'tonal', 'text': 'Jackett搜索服务：种子索引聚合搜索，搜索结果将以磁力链接方式添加到115离线下载任务'}
+                            }]
+                        }]
+                    },
+                    # Jackett 配置
+                    {
+                        'component': 'VRow',
+                        'content': [
+                            {'component': 'VCol', 'props': {'cols': 6, 'md': 2},
+                             'content': [{'component': 'VSwitch', 'props': {'model': 'jackett_enabled', 'label': '启用 Jackett'}}]},
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 5},
+                             'content': [{'component': 'VTextField', 'props': {'model': 'jackett_url', 'label': 'Jackett 地址', 'placeholder': 'http://localhost:9117'}}]},
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 5},
+                             'content': [{'component': 'VTextField', 'props': {'model': 'jackett_apikey', 'label': 'Jackett API Key', 'type': 'password', 'placeholder': '从 Jackett Web UI 右上角获取'}}]}
+                        ]
+                    },
                     # 风控防护说明
                     {
                         'component': 'VRow',
@@ -297,6 +321,9 @@ class UIConfig:
             "pansou_auth_enabled": False,
             "pansou_channels": "QukanMovie",
             "pansou_cloud_types": ["115"],
+            "jackett_enabled": False,
+            "jackett_url": "http://localhost:9117",
+            "jackett_apikey": "",
             "exclude_subscribes": [],
             "block_system_subscribe": False,
             "max_transfer_per_sync": 50,
