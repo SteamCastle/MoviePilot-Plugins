@@ -75,6 +75,13 @@ class MyPlugin(_PluginBase):
 
 GitHub Actions 自动发布：修改 `package.v2.json` 后触发，自动打包 `plugins.v2/` 下对应插件并创建 Release。
 
+### 版本号更新
+
+升级版本号时，需要同步更新以下**两个文件**：
+
+1. `plugins.v2/subtransfer115/__init__.py` — `plugin_version` 字段
+2. `package.v2.json` — `version` 字段 + `history` 中新增对应版本的 changelog 条目
+
 ## Dependencies
 
 当前插件依赖：
