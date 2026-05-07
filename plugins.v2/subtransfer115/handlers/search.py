@@ -174,16 +174,21 @@ class SearchHandler:
         all_results.sort(key=lambda x: x.get("update_time", ""), reverse=True)
         return all_results
 
+    def _get_jackett_search_title(self, mediainfo: MediaInfo) -> str:
+        """获取用于 Jackett 搜索的英文标题"""
+        return mediainfo.en_title or mediainfo.original_title or mediainfo.title
+
     def _search_jackett_movie(self, mediainfo: MediaInfo) -> List[Dict]:
         if not self._jackett_client:
             logger.warning("Jackett 客户端未初始化，跳过 Jackett 查询")
             return []
 
-        need_strict_search = self._check_tmdb_multiple_results(mediainfo.title)
+        search_title = self._get_jackett_search_title(mediainfo)
+        need_strict_search = self._check_tmdb_multiple_results(search_title)
         if need_strict_search and mediainfo.year:
-            keyword = f"{mediainfo.title} {mediainfo.year}"
+            keyword = f"{search_title} {mediainfo.year}"
         else:
-            keyword = mediainfo.title
+            keyword = search_title
 
         logger.info(f"使用 Jackett 搜索电影资源: {mediainfo.title}，关键词: '{keyword}'")
         results = self._jackett_search(keyword)
@@ -198,9 +203,10 @@ class SearchHandler:
             logger.warning("Jackett 客户端未初始化，跳过 Jackett 查询")
             return []
 
+        search_title = self._get_jackett_search_title(mediainfo)
         search_keywords = [
-            f"{mediainfo.title}{season}",
-            mediainfo.title
+            f"{search_title}{season}",
+            search_title
         ]
 
         for keyword in search_keywords:
