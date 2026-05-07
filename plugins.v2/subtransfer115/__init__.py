@@ -34,7 +34,7 @@ class SubTransfer115(_PluginBase):
     plugin_name = "SubTransfer115"
     plugin_desc = "结合MoviePilot订阅功能，通过PanSou/Jackett搜索115网盘资源并转存缺失的电影和剧集。"
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png"
-    plugin_version = "1.0.4"
+    plugin_version = "1.0.5"
     plugin_author = "SteamCastle"
     author_url = "https://github.com/SteamCastle"
     plugin_config_prefix = "subtransfer115_"
