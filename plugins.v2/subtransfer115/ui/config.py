@@ -200,6 +200,27 @@ class UIConfig:
                              'content': [{'component': 'VTextField', 'props': {'model': 'cookies', 'label': '115 Cookie', 'type': 'password', 'placeholder': 'UID=xxx; CID=xxx; SEID=xxx'}}]}
                         ]
                     },
+                    # 离线下载目录
+                    {
+                        'component': 'VRow',
+                        'content': [{
+                            'component': 'VCol',
+                            'props': {'cols': 12},
+                            'content': [{
+                                'component': 'VAlert',
+                                'props': {'type': 'info', 'variant': 'tonal', 'text': '磁力/ed2k 离线下载目录：用于 PanSou 磁力/电驴链接和 Jackett 种子资源的离线下载，留空则使用上方转存目录'}
+                            }]
+                        }]
+                    },
+                    {
+                        'component': 'VRow',
+                        'content': [
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 6},
+                             'content': [{'component': 'VTextField', 'props': {'model': 'offline_download_path', 'label': '电视剧离线下载目录', 'placeholder': '/我的接收/MoviePilot/OfflineTV', 'hint': '磁力/ed2k 电视剧离线下载目录，留空则使用电视剧转存目录', 'persistent-hint': True, 'clearable': True}}]},
+                            {'component': 'VCol', 'props': {'cols': 12, 'md': 6},
+                             'content': [{'component': 'VTextField', 'props': {'model': 'movie_offline_download_path', 'label': '电影离线下载目录', 'placeholder': '/我的接收/MoviePilot/OfflineMovie', 'hint': '磁力/ed2k 电影离线下载目录，留空则使用电影转存目录', 'persistent-hint': True, 'clearable': True}}]}
+                        ]
+                    },
                     # PanSou说明
                     {
                         'component': 'VRow',
@@ -315,6 +336,8 @@ class UIConfig:
 
             "save_path": "/我的接收/MoviePilot/TV",
             "movie_save_path": "/我的接收/MoviePilot/Movie",
+            "offline_download_path": "/我的接收/MoviePilot/OfflineTV",
+            "movie_offline_download_path": "/我的接收/MoviePilot/OfflineMovie",
             "cookies": "",
             "pansou_enabled": True,
             "pansou_url": "https://so.252035.xyz/",
@@ -359,6 +382,98 @@ class UIConfig:
 
         sorted_history = sorted(history, key=lambda x: x.get('time', ''), reverse=True) if history else []
         last_sync_time = sorted_history[0].get("time", "暂无") if sorted_history else "暂无"
+
+        search_test_dialog = {
+            'component': 'VDialog',
+            'props': {'max-width': '550px'},
+            'content': [
+                {
+                    'component': 'template',
+                    'slot': 'activator',
+                    'content': [{
+                        'component': 'VBtn',
+                        'props': {
+                            'color': 'primary',
+                            'variant': 'outlined',
+                            'prepend-icon': 'mdi-magnify',
+                            'class': 'mb-4'
+                        },
+                        'text': '搜索测试'
+                    }]
+                },
+                {
+                    'component': 'VCard',
+                    'content': [{
+                        'component': 'VCardText',
+                        'content': [
+                            {
+                                'component': 'div',
+                                'props': {'class': 'text-h6 mb-4'},
+                                'content': [
+                                    {'component': 'VIcon', 'props': {'class': 'mr-2'}, 'text': 'mdi-magnify'},
+                                    '搜索测试'
+                                ]
+                            },
+                            {
+                                'component': 'VRow',
+                                'content': [
+                                    {
+                                        'component': 'VCol',
+                                        'props': {'cols': 12},
+                                        'content': [{
+                                            'component': 'VTextField',
+                                            'props': {
+                                                'model': 'keyword',
+                                                'label': '搜索关键词',
+                                                'placeholder': '输入片名，如：Oppenheimer',
+                                                'hint': '直接输入关键词测试搜索源返回结果',
+                                                'persistent-hint': True
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        'component': 'VCol',
+                                        'props': {'cols': 12},
+                                        'content': [{
+                                            'component': 'VSelect',
+                                            'props': {
+                                                'model': 'source',
+                                                'label': '搜索源',
+                                                'items': [
+                                                    {'title': 'PanSou', 'value': 'pansou'},
+                                                    {'title': 'Jackett', 'value': 'jackett'}
+                                                ],
+                                                'hint': '选择要测试的搜索源',
+                                                'persistent-hint': True
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        'component': 'VCol',
+                                        'props': {'cols': 12},
+                                        'content': [{
+                                            'component': 'VBtn',
+                                            'props': {
+                                                'color': 'primary',
+                                                'block': True,
+                                                'prepend-icon': 'mdi-magnify'
+                                            },
+                                            'text': '开始搜索',
+                                            'events': {
+                                                'click': {
+                                                    'api': f'/plugin/SubTransfer115/search_test?apikey={settings.API_TOKEN}',
+                                                    'method': 'get'
+                                                }
+                                            }
+                                        }]
+                                    }
+                                ]
+                            }
+                        ]
+                    }]
+                }
+            ]
+        }
 
         stats_header = {
             'component': 'VCard',
@@ -547,7 +662,7 @@ class UIConfig:
                     ]
                 }]
             }
-            return [stats_header, empty_state]
+            return [search_test_dialog, stats_header, empty_state]
 
         movie_history = [h for h in sorted_history if h.get("type") == "电影"][:50]
         tv_history = [h for h in sorted_history if h.get("type") != "电影"][:50]
@@ -669,4 +784,4 @@ class UIConfig:
             ]
         }
 
-        return [stats_header, expansion_panels]
+        return [search_test_dialog, stats_header, expansion_panels]

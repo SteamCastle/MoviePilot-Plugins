@@ -69,6 +69,48 @@ class ApiHandler:
 
         return {"keyword": keyword, "results": results}
 
+    def search_test(self, keyword: str, source: str) -> dict:
+        """
+        API: 搜索测试（直接关键词搜索，不依赖 MediaInfo）
+
+        :param keyword: 搜索关键词
+        :param source: 搜索源 (pansou | jackett)
+        :return: 搜索结果
+        """
+        if source == "pansou":
+            if not self._pansou_client:
+                return {"error": "PanSou 客户端未初始化，请检查配置"}
+            result = self._pansou_client.search(
+                keyword=keyword,
+                cloud_types=["115", "magnet", "ed2k"],
+                limit=20
+            )
+            items = []
+            type_map = {"115网盘": "115", "磁力链接": "magnet", "电驴链接": "ed2k"}
+            if result and not result.get("error"):
+                for type_name, type_items in result.get("results", {}).items():
+                    pan_type = type_map.get(type_name, type_name)
+                    for item in type_items:
+                        item["pan_type"] = pan_type
+                        items.append(item)
+            items.sort(key=lambda x: x.get("update_time", ""), reverse=True)
+            return {"keyword": keyword, "source": "pansou", "total": len(items), "results": items}
+        elif source == "jackett":
+            if not self._jackett_client:
+                return {"error": "Jackett 客户端未初始化，请检查配置"}
+            result = self._jackett_client.search(keyword=keyword, limit=20)
+            items = []
+            if result and not result.get("error"):
+                for type_name, type_items in result.get("results", {}).items():
+                    for item in type_items:
+                        item["pan_type"] = "magnet"
+                        item["indexer"] = type_name
+                        items.append(item)
+            items.sort(key=lambda x: x.get("update_time", ""), reverse=True)
+            return {"keyword": keyword, "source": "jackett", "total": len(items), "results": items}
+        else:
+            return {"error": f"未知的搜索源: {source}，可选值为 pansou 或 jackett"}
+
     def transfer(self, share_url: str, save_path: str, apikey: str) -> dict:
         """
         API: 转存分享链接

@@ -34,7 +34,7 @@ class SubTransfer115(_PluginBase):
     plugin_name = "SubTransfer115"
     plugin_desc = "结合MoviePilot订阅功能，通过PanSou/Jackett搜索115网盘资源并转存缺失的电影和剧集。"
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png"
-    plugin_version = "1.0.2"
+    plugin_version = "1.0.4"
     plugin_author = "SteamCastle"
     author_url = "https://github.com/SteamCastle"
     plugin_config_prefix = "subtransfer115_"
@@ -65,6 +65,8 @@ class SubTransfer115(_PluginBase):
 
     _save_path: str = "/我的接收/MoviePilot/TV"
     _movie_save_path: str = "/我的接收/MoviePilot/Movie"
+    _offline_download_path: str = "/我的接收/MoviePilot/OfflineTV"
+    _movie_offline_download_path: str = "/我的接收/MoviePilot/OfflineMovie"
     _only_115: bool = True
     _exclude_subscribes: List[int] = []
 
@@ -444,6 +446,8 @@ class SubTransfer115(_PluginBase):
 
             self._save_path = config.get("save_path", "/我的接收/MoviePilot/TV")
             self._movie_save_path = config.get("movie_save_path", "/我的接收/MoviePilot/Movie")
+            self._offline_download_path = config.get("offline_download_path", "/我的接收/MoviePilot/OfflineTV")
+            self._movie_offline_download_path = config.get("movie_offline_download_path", "/我的接收/MoviePilot/OfflineMovie")
             self._only_115 = config.get("only_115", True)
             self._exclude_subscribes = config.get("exclude_subscribes", []) or []
 
@@ -546,6 +550,8 @@ class SubTransfer115(_PluginBase):
             chain=self.chain,
             save_path=self._save_path,
             movie_save_path=self._movie_save_path,
+            offline_download_path=self._offline_download_path,
+            movie_offline_download_path=self._movie_offline_download_path,
             max_transfer_per_sync=self._max_transfer_per_sync,
             batch_size=self._batch_size,
             skip_other_season_dirs=self._skip_other_season_dirs,
@@ -576,6 +582,8 @@ class SubTransfer115(_PluginBase):
             "only_115": self._only_115,
             "save_path": self._save_path,
             "movie_save_path": self._movie_save_path,
+            "offline_download_path": self._offline_download_path,
+            "movie_offline_download_path": self._movie_offline_download_path,
             "cookies": self._cookies,
             "pansou_enabled": self._pansou_enabled,
             "pansou_url": self._pansou_url,
@@ -637,7 +645,8 @@ class SubTransfer115(_PluginBase):
     def get_api(self) -> List[Dict[str, Any]]:
         return [
             {"path": "/sync_subscribes", "endpoint": self.sync_subscribes, "methods": ["GET"], "summary": "执行同步订阅追更"},
-            {"path": "/clear_history", "endpoint": self.api_clear_history, "methods": ["POST"], "summary": "清空历史记录"}
+            {"path": "/clear_history", "endpoint": self.api_clear_history, "methods": ["POST"], "summary": "清空历史记录"},
+            {"path": "/search_test", "endpoint": self.api_search_test, "methods": ["GET"], "summary": "搜索测试"},
         ]
 
     @staticmethod
@@ -812,6 +821,16 @@ class SubTransfer115(_PluginBase):
 
     def api_list_directories(self, path: str = "/", apikey: str = "") -> dict:
         return self._api_handler.list_directories(path, apikey)
+
+    def api_search_test(self, keyword: str, source: str = "pansou", apikey: str = "") -> dict:
+        """
+        API: 搜索测试 — 输入关键词选择搜索源进行搜索测试
+        """
+        if apikey != settings.API_TOKEN:
+            return {"error": "API密钥错误"}
+        if not keyword or not keyword.strip():
+            return {"error": "关键词不能为空"}
+        return self._api_handler.search_test(keyword.strip(), source)
 
     @eventmanager.register(EventType.PluginAction)
     def remote_sync(self, event: Event):

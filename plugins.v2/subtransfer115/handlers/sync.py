@@ -32,6 +32,8 @@ class SyncHandler:
         chain,
         save_path: str,
         movie_save_path: str,
+        offline_download_path: str = "",
+        movie_offline_download_path: str = "",
         max_transfer_per_sync: int = 50,
         batch_size: int = 20,
         skip_other_season_dirs: bool = True,
@@ -46,6 +48,8 @@ class SyncHandler:
         self._chain = chain
         self._save_path = save_path
         self._movie_save_path = movie_save_path
+        self._offline_download_path = offline_download_path or save_path
+        self._movie_offline_download_path = movie_offline_download_path or movie_save_path
         self._max_transfer_per_sync = max_transfer_per_sync
         self._batch_size = batch_size
         self._skip_other_season_dirs = skip_other_season_dirs
@@ -214,7 +218,7 @@ class SyncHandler:
                             logger.error(f"转存失败：{mediainfo.title}")
                     else:
                         if pan_type in ("magnet", "ed2k"):
-                            save_dir = f"{self._movie_save_path}/{mediainfo.title} ({mediainfo.year})" if mediainfo.year else f"{self._movie_save_path}/{mediainfo.title}"
+                            save_dir = f"{self._movie_offline_download_path}/{mediainfo.title} ({mediainfo.year})" if mediainfo.year else f"{self._movie_offline_download_path}/{mediainfo.title}"
                             logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...，保存到: {save_dir}")
                             success = self._p115_manager.add_offline_task(share_url, save_path=save_dir)
 
@@ -580,8 +584,9 @@ class SyncHandler:
                             break
                     else:
                         if pan_type in ("magnet", "ed2k"):
-                            logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...，保存到: {save_dir}")
-                            success = self._p115_manager.add_offline_task(share_url, save_path=save_dir)
+                            offline_save_dir = f"{self._offline_download_path}/{show_folder}/Season {season}"
+                            logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...，保存到: {offline_save_dir}")
+                            success = self._p115_manager.add_offline_task(share_url, save_path=offline_save_dir)
 
                             history_item = {
                                 "title": mediainfo.title, "season": season,
