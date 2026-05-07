@@ -49,7 +49,7 @@ class JackettClient:
         :param limit: 结果上限
         :return: {"keyword": str, "total": int, "count": int, "results": {"磁力链接": [...]}}
         """
-        url = f"{self._base_url}/api/v2.0/indexers/all/results/torznab/api"
+        url = f"{self._base_url}/api/v2.0/indexers/all/results/torznab"
         params = {
             "t": "search",
             "q": keyword,
@@ -60,11 +60,21 @@ class JackettClient:
 
         try:
             self._api_call_count += 1
+            logger.info(f"Jackett 搜索请求: url={url}, keyword={keyword}")
             resp = self._session.get(url, params=params, timeout=30)
-            resp.raise_for_status()
+
+            if not resp.ok:
+                logger.error(
+                    f"Jackett 搜索返回非 2xx 状态码: "
+                    f"status={resp.status_code}, url={resp.url}, body={resp.text[:500]}"
+                )
+                resp.raise_for_status()
 
             items = self._parse_torznab_xml(resp.text)
             items = items[:limit]
+
+            if not items:
+                logger.warning(f"Jackett 搜索无结果: keyword={keyword}, xml_len={len(resp.text)}")
 
             return {
                 "keyword": keyword,
@@ -73,10 +83,13 @@ class JackettClient:
                 "results": {"磁力链接": items} if items else {},
             }
         except requests.RequestException as e:
-            logger.error(f"Jackett 搜索请求失败: {e}")
+            logger.error(f"Jackett 搜索请求失败: keyword={keyword}, url={url}, error={e}")
+            return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
+        except ET.ParseError as e:
+            logger.error(f"Jackett 搜索结果 XML 解析失败: keyword={keyword}, error={e}, body_preview={resp.text[:300] if 'resp' in dir() else 'N/A'}")
             return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
         except Exception as e:
-            logger.error(f"Jackett 搜索结果解析失败: {e}")
+            logger.error(f"Jackett 搜索结果处理失败: keyword={keyword}, error={e}")
             return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
 
     def _parse_torznab_xml(self, xml_text: str) -> List[Dict]:
@@ -84,17 +97,26 @@ class JackettClient:
         root = ET.fromstring(xml_text)
         channel = root.find("channel")
         if channel is None:
+            logger.warning(f"Jackett XML 缺少 <channel> 元素，root_tag={root.tag}")
             return []
 
+        all_items = channel.findall("item")
+        logger.debug(f"Jackett XML 解析: 共 {len(all_items)} 个 item")
+
         results = []
-        for item in channel.findall("item"):
+        skipped_no_title = 0
+        skipped_no_magnet = 0
+        for item in all_items:
             try:
                 title = self._get_text(item, "title")
                 if not title:
+                    skipped_no_title += 1
                     continue
 
                 magnet_url = self._extract_magnet(item)
                 if not magnet_url:
+                    skipped_no_magnet += 1
+                    logger.debug(f"Jackett item 缺少磁力链接: title={self._get_text(item, 'title')}, guid={self._get_text(item, 'guid')}, link={self._get_text(item, 'link')}")
                     continue
 
                 pub_date = self._get_text(item, "pubDate")
@@ -112,17 +134,36 @@ class JackettClient:
                 logger.debug(f"解析 Jackett item 失败: {e}")
                 continue
 
+        if skipped_no_title or skipped_no_magnet:
+            logger.warning(
+                f"Jackett XML 部分 item 被跳过: "
+                f"total={len(all_items)}, results={len(results)}, "
+                f"skipped_no_title={skipped_no_title}, skipped_no_magnet={skipped_no_magnet}"
+            )
+
         results.sort(key=lambda x: x.get("seeders", 0), reverse=True)
         return results
 
     def _extract_magnet(self, item: ET.Element) -> Optional[str]:
         """从 item 中提取磁力链接"""
-        # 优先从 torznab:attr 中获取
+        # 1. 从 torznab:attr 中获取
         magnet = self._extract_torznab_attr(item, "magneturl")
         if magnet and magnet.startswith("magnet:"):
             return magnet
 
-        # 从 guid 中获取
+        # 2. Jackett 通常将磁力链接放在 <link> 中
+        link = self._get_text(item, "link")
+        if link and link.startswith("magnet:"):
+            return link
+
+        # 3. 从 <enclosure> 的 url 属性获取
+        enclosure = item.find("enclosure")
+        if enclosure is not None:
+            enc_url = enclosure.get("url")
+            if enc_url and enc_url.startswith("magnet:"):
+                return enc_url
+
+        # 4. 从 guid 中获取
         guid = self._get_text(item, "guid")
         if guid and guid.startswith("magnet:"):
             return guid
