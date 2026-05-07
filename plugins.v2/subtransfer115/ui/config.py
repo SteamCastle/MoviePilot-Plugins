@@ -383,98 +383,6 @@ class UIConfig:
         sorted_history = sorted(history, key=lambda x: x.get('time', ''), reverse=True) if history else []
         last_sync_time = sorted_history[0].get("time", "暂无") if sorted_history else "暂无"
 
-        search_test_dialog = {
-            'component': 'VDialog',
-            'props': {'max-width': '550px'},
-            'content': [
-                {
-                    'component': 'template',
-                    'slot': 'activator',
-                    'content': [{
-                        'component': 'VBtn',
-                        'props': {
-                            'color': 'primary',
-                            'variant': 'outlined',
-                            'prepend-icon': 'mdi-magnify',
-                            'class': 'mb-4'
-                        },
-                        'text': '搜索测试'
-                    }]
-                },
-                {
-                    'component': 'VCard',
-                    'content': [{
-                        'component': 'VCardText',
-                        'content': [
-                            {
-                                'component': 'div',
-                                'props': {'class': 'text-h6 mb-4'},
-                                'content': [
-                                    {'component': 'VIcon', 'props': {'class': 'mr-2'}, 'text': 'mdi-magnify'},
-                                    '搜索测试'
-                                ]
-                            },
-                            {
-                                'component': 'VRow',
-                                'content': [
-                                    {
-                                        'component': 'VCol',
-                                        'props': {'cols': 12},
-                                        'content': [{
-                                            'component': 'VTextField',
-                                            'props': {
-                                                'model': 'keyword',
-                                                'label': '搜索关键词',
-                                                'placeholder': '输入片名，如：Oppenheimer',
-                                                'hint': '直接输入关键词测试搜索源返回结果',
-                                                'persistent-hint': True
-                                            }
-                                        }]
-                                    },
-                                    {
-                                        'component': 'VCol',
-                                        'props': {'cols': 12},
-                                        'content': [{
-                                            'component': 'VSelect',
-                                            'props': {
-                                                'model': 'source',
-                                                'label': '搜索源',
-                                                'items': [
-                                                    {'title': 'PanSou', 'value': 'pansou'},
-                                                    {'title': 'Jackett', 'value': 'jackett'}
-                                                ],
-                                                'hint': '选择要测试的搜索源',
-                                                'persistent-hint': True
-                                            }
-                                        }]
-                                    },
-                                    {
-                                        'component': 'VCol',
-                                        'props': {'cols': 12},
-                                        'content': [{
-                                            'component': 'VBtn',
-                                            'props': {
-                                                'color': 'primary',
-                                                'block': True,
-                                                'prepend-icon': 'mdi-magnify'
-                                            },
-                                            'text': '开始搜索',
-                                            'events': {
-                                                'click': {
-                                                    'api': f'/plugin/SubTransfer115/search_test?apikey={settings.API_TOKEN}',
-                                                    'method': 'get'
-                                                }
-                                            }
-                                        }]
-                                    }
-                                ]
-                            }
-                        ]
-                    }]
-                }
-            ]
-        }
-
         stats_header = {
             'component': 'VCard',
             'props': {'class': 'mb-4'},
@@ -607,14 +515,100 @@ class UIConfig:
                             }
                         ]
                     },
-                    # 操作按钮：立即搜索 + 清空历史记录
+                    # 操作按钮：搜索测试 + 立即搜索 + 清空历史记录
                     {
                         'component': 'VRow',
                         'props': {'class': 'mt-4'},
                         'content': [
                             {
                                 'component': 'VCol',
-                                'props': {'cols': 6, 'class': 'text-center'},
+                                'props': {'cols': 4, 'class': 'text-center'},
+                                'content': [{
+                                    'component': 'VDialog',
+                                    'props': {'max-width': '550px'},
+                                    'content': [
+                                        {
+                                            'component': 'template',
+                                            'slot': 'activator',
+                                            'content': [{
+                                                'component': 'VBtn',
+                                                'props': {'color': 'primary', 'variant': 'outlined', 'size': 'small', 'prepend-icon': 'mdi-magnify'},
+                                                'text': '搜索测试'
+                                            }]
+                                        },
+                                        {
+                                            'component': 'VCard',
+                                            'content': [{
+                                                'component': 'VCardText',
+                                                'content': [
+                                                    {
+                                                        'component': 'div',
+                                                        'props': {'class': 'text-h6 mb-4'},
+                                                        'content': [
+                                                            {'component': 'VIcon', 'props': {'class': 'mr-2'}, 'text': 'mdi-magnify'},
+                                                            '搜索测试'
+                                                        ]
+                                                    },
+                                                    {
+                                                        'component': 'VRow',
+                                                        'content': [
+                                                            {
+                                                                'component': 'VCol',
+                                                                'props': {'cols': 12},
+                                                                'content': [{
+                                                                    'component': 'VTextField',
+                                                                    'props': {
+                                                                        'model': 'keyword',
+                                                                        'label': '搜索关键词',
+                                                                        'placeholder': '输入片名，如：Oppenheimer',
+                                                                        'hint': '直接输入关键词测试搜索源返回结果',
+                                                                        'persistent-hint': True
+                                                                    }
+                                                                }]
+                                                            },
+                                                            {
+                                                                'component': 'VCol',
+                                                                'props': {'cols': 12},
+                                                                'content': [{
+                                                                    'component': 'VSelect',
+                                                                    'props': {
+                                                                        'model': 'source',
+                                                                        'label': '搜索源',
+                                                                        'items': [
+                                                                            {'title': 'PanSou', 'value': 'pansou'},
+                                                                            {'title': 'Jackett', 'value': 'jackett'}
+                                                                        ],
+                                                                        'hint': '选择要测试的搜索源',
+                                                                        'persistent-hint': True
+                                                                    }
+                                                                }]
+                                                            },
+                                                            {
+                                                                'component': 'VCol',
+                                                                'props': {'cols': 12},
+                                                                'content': [{
+                                                                    'component': 'VBtn',
+                                                                    'props': {'color': 'primary', 'block': True, 'prepend-icon': 'mdi-magnify'},
+                                                                    'text': '开始搜索',
+                                                                    'events': {
+                                                                        'click': {
+                                                                            'api': f'/plugin/SubTransfer115/search_test?apikey={settings.API_TOKEN}',
+                                                                            'method': 'get'
+                                                                        }
+                                                                    }
+                                                                }]
+                                                            }
+                                                        ]
+                                                    }
+                                                ]
+                                            }]
+                                        }
+                                    ]
+                                }]
+                            },
+                            {
+                                'component': 'VCol',
+                                'props': {'cols': 4, 'class': 'text-center'},
                                 'content': [{
                                     'component': 'VBtn',
                                     'props': {'color': 'primary', 'variant': 'outlined', 'size': 'small', 'prepend-icon': 'mdi-magnify'},
@@ -629,7 +623,7 @@ class UIConfig:
                             },
                             {
                                 'component': 'VCol',
-                                'props': {'cols': 6, 'class': 'text-center'},
+                                'props': {'cols': 4, 'class': 'text-center'},
                                 'content': [{
                                     'component': 'VBtn',
                                     'props': {'color': 'error', 'variant': 'outlined', 'size': 'small', 'prepend-icon': 'mdi-delete-sweep'},
@@ -662,7 +656,7 @@ class UIConfig:
                     ]
                 }]
             }
-            return [search_test_dialog, stats_header, empty_state]
+            return [stats_header, empty_state]
 
         movie_history = [h for h in sorted_history if h.get("type") == "电影"][:50]
         tv_history = [h for h in sorted_history if h.get("type") != "电影"][:50]
@@ -784,4 +778,4 @@ class UIConfig:
             ]
         }
 
-        return [search_test_dialog, stats_header, expansion_panels]
+        return [stats_header, expansion_panels]
