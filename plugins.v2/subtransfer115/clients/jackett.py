@@ -10,7 +10,8 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-TORZNAB_NS = "http://torznab.schemas.com/2010/feed"
+TORZNAB_NS_2010 = "http://torznab.schemas.com/2010/feed"
+TORZNAB_NS_2015 = "http://torznab.com/schemas/2015/feed"
 
 
 class JackettClient:
@@ -49,14 +50,15 @@ class JackettClient:
         :param limit: 结果上限
         :return: {"keyword": str, "total": int, "count": int, "results": {"磁力链接": [...]}}
         """
-        url = f"{self._base_url}/api/v2.0/indexers/all/results/torznab"
+        if self._tag:
+            url = f"{self._base_url}/api/v2.0/indexers/tag:{self._tag}/results/torznab/api"
+        else:
+            url = f"{self._base_url}/api/v2.0/indexers/all/results/torznab/api"
         params = {
             "t": "search",
             "q": keyword,
             "apikey": self._apikey,
         }
-        if self._tag:
-            params["tag"] = self._tag
 
         try:
             self._api_call_count += 1
@@ -120,7 +122,7 @@ class JackettClient:
                     continue
 
                 pub_date = self._get_text(item, "pubDate")
-                size = self._extract_torznab_attr(item, "size")
+                size = self._extract_torznab_attr(item, "size") or self._get_text(item, "size")
                 seeders = self._extract_torznab_attr(item, "seeders")
 
                 results.append({
@@ -171,10 +173,11 @@ class JackettClient:
         return None
 
     def _extract_torznab_attr(self, item: ET.Element, name: str) -> Optional[str]:
-        """提取 torznab:attr 属性值"""
-        for attr in item.findall(f"{{{TORZNAB_NS}}}attr"):
-            if attr.get("name") == name:
-                return attr.get("value")
+        """提取 torznab:attr 属性值，兼容 2010 和 2015 namespace"""
+        for ns in (TORZNAB_NS_2015, TORZNAB_NS_2010):
+            for attr in item.findall(f"{{{ns}}}attr"):
+                if attr.get("name") == name:
+                    return attr.get("value")
         return None
 
     @staticmethod

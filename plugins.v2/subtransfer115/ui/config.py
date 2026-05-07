@@ -442,8 +442,12 @@ class UIConfig:
                                             'text': '开始搜索',
                                             'events': {
                                                 'click': {
-                                                    'api': f'/plugin/SubTransfer115/search_test?apikey={settings.API_TOKEN}',
-                                                    'method': 'get'
+                                                    'api': f'/plugin/SubTransfer115/search_test?apikey={settings.API_TOKEN}&keyword={{keyword}}&source={{source}}',
+                                                    'method': 'get',
+                                                    'success': {
+                                                        'target': 'search_results',
+                                                        'action': 'set'
+                                                    }
                                                 }
                                             }
                                         }]
@@ -454,6 +458,29 @@ class UIConfig:
                     ]
                 }
             ]
+        }
+
+
+        search_result_card = {
+            'component': 'VCard',
+            'props': {'class': 'mb-4', 'model': 'search_results'},
+            'content': [{
+                'component': 'VCardTitle',
+                'text': '搜索结果'
+            }, {
+                'component': 'VCardText',
+                'content': [{
+                    'component': 'VList',
+                    'props': {'model': 'search_results.results', 'lines': 'two'},
+                    'content': [{
+                        'component': 'VListItem',
+                        'content': [
+                            {'component': 'VListItemTitle', 'text': '{title}'},
+                            {'component': 'VListItemSubtitle', 'text': '来源: {pan_type} | 时间: {update_time}'}
+                        ]
+                    }]
+                }]
+            }]
         }
 
         stats_header = {
@@ -643,7 +670,7 @@ class UIConfig:
                     ]
                 }]
             }
-            return [search_test_panel, stats_header, empty_state]
+            return [search_test_panel, search_result_card, stats_header, empty_state]
 
         movie_history = [h for h in sorted_history if h.get("type") == "电影"][:50]
         tv_history = [h for h in sorted_history if h.get("type") != "电影"][:50]
@@ -765,4 +792,4 @@ class UIConfig:
             ]
         }
 
-        return [search_test_panel, stats_header, expansion_panels]
+        return [search_test_panel, search_result_card, stats_header, expansion_panels]
