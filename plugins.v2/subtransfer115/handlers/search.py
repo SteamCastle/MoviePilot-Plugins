@@ -209,7 +209,7 @@ class SearchHandler:
 
         search_title = self._get_jackett_search_title(mediainfo)
         search_keywords = [
-            f"{search_title}{season}",
+            f"{search_title} S{season:02d}",
             search_title
         ]
 
