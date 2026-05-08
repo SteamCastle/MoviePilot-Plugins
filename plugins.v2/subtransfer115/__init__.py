@@ -34,7 +34,7 @@ class SubTransfer115(_PluginBase):
     plugin_name = "SubTransfer115"
     plugin_desc = "结合MoviePilot订阅功能，通过PanSou/Jackett搜索115网盘资源并转存缺失的电影和剧集。"
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png"
-    plugin_version = "1.0.8"
+    plugin_version = "1.0.9"
     plugin_author = "SteamCastle"
     author_url = "https://github.com/SteamCastle"
     plugin_config_prefix = "subtransfer115_"
@@ -89,6 +89,8 @@ class SubTransfer115(_PluginBase):
     _subscribe_handler: Optional[SubscribeHandler] = None
     _sync_handler: Optional[SyncHandler] = None
     _api_handler: Optional[ApiHandler] = None
+
+    _search_test_results: Optional[dict] = None
 
     _MIN_INTERVAL_HOURS: int = 8
 
@@ -640,7 +642,9 @@ class SubTransfer115(_PluginBase):
 
     def get_page(self) -> Optional[List[dict]]:
         history = self.get_data('history') or []
-        return UIConfig.get_page(history)
+        results = self._search_test_results
+        self._search_test_results = None
+        return UIConfig.get_page(history, results)
 
     def get_api(self) -> List[Dict[str, Any]]:
         return [
@@ -830,7 +834,9 @@ class SubTransfer115(_PluginBase):
             return {"error": "API密钥错误"}
         if not keyword or not keyword.strip():
             return {"error": "关键词不能为空"}
-        return self._api_handler.search_test(keyword.strip(), source)
+        result = self._api_handler.search_test(keyword.strip(), source)
+        self._search_test_results = result
+        return result
 
     @eventmanager.register(EventType.PluginAction)
     def remote_sync(self, event: Event):

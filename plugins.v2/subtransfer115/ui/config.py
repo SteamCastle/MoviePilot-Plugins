@@ -2,7 +2,7 @@
 UI配置模块
 负责生成插件的配置表单和详情页面
 """
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from app.core.config import settings
 from app.db.subscribe_oper import SubscribeOper
 from app.schemas.types import MediaType
@@ -360,12 +360,66 @@ class UIConfig:
         return form_schema, default_config
 
     @staticmethod
-    def get_page(history: List[dict]) -> List[dict]:
-        """
-        详情页内容与 1.2.4 无强耦合，保持原样即可
-        """
-        # 你原有的 get_page 很长，这里不做任何改动，继续沿用你现有版本即可。
-        # 如果你希望我也按 1.2.4 统一“文案/按钮标题”，你告诉我我再一起改。
+    def _build_search_results_html(results: Optional[dict]) -> str:
+        if not results:
+            return '<div class="text-center text-grey py-2">点击上方按钮开始搜索测试</div>'
+        if results.get("error"):
+            return f'<div class="text-center text-red py-2">{results["error"]}</div>'
+
+        keyword = results.get("keyword", "")
+        source = results.get("source", "")
+        total = results.get("total", 0)
+        items = results.get("results", [])
+
+        if not items:
+            return f'<div class="text-center text-grey py-4">关键词 "{keyword}" 在 {source} 无搜索结果</div>'
+
+        rows = ""
+        for item in items[:20]:
+            title = item.get("title", "")
+            pan_type = item.get("pan_type", "")
+            update_time = item.get("update_time", "")
+            size = item.get("size", "")
+            if size:
+                try:
+                    s = float(size)
+                    if s >= 1024**3:
+                        size = f"{s / 1024**3:.1f} GB"
+                    elif s >= 1024**2:
+                        size = f"{s / 1024**2:.1f} MB"
+                    elif s >= 1024:
+                        size = f"{s / 1024:.1f} KB"
+                except (ValueError, TypeError):
+                    pass
+
+            rows += (
+                '<tr style="border-bottom: 1px solid rgba(0,0,0,.12)">'
+                f'<td style="padding:6px 8px;font-size:13px">{title}</td>'
+                f'<td style="padding:6px 8px;font-size:13px">{pan_type}</td>'
+                f'<td style="padding:6px 8px;font-size:13px;white-space:nowrap">{update_time}</td>'
+                f'<td style="padding:6px 8px;font-size:13px;white-space:nowrap">{size}</td>'
+                '</tr>'
+            )
+
+        return (
+            f'<div><p style="margin-bottom:8px;font-size:14px">'
+            f'关键词: <b>{keyword}</b> | 搜索源: <b>{source}</b> | 结果: <b>{total}</b> 条'
+            '</p>'
+            '<table style="width:100%;border-collapse:collapse">'
+            '<thead><tr style="background:rgba(0,0,0,.04)">'
+            '<th style="padding:6px 8px;text-align:left;font-size:12px">标题</th>'
+            '<th style="padding:6px 8px;text-align:left;font-size:12px">来源</th>'
+            '<th style="padding:6px 8px;text-align:left;font-size:12px;white-space:nowrap">时间</th>'
+            '<th style="padding:6px 8px;text-align:left;font-size:12px;white-space:nowrap">大小</th>'
+            '</tr></thead>'
+            f'<tbody>{rows}</tbody></table></div>'
+        )
+
+    @staticmethod
+    def get_page(history: List[dict], search_results: Optional[dict] = None) -> List[dict]:
+        “””
+        详情页
+        “””
         from datetime import datetime
 
         history = history or []
@@ -400,53 +454,88 @@ class UIConfig:
                         {
                             'component': 'VExpansionPanelText',
                             'content': [{
+                                'component': 'div',
+                                'props': {'class': 'mb-2'},
+                                'text': '点击下方按钮测试搜索源返回结果：'
+                            }, {
                                 'component': 'VRow',
+                                'props': {'class': 'mb-2'},
                                 'content': [
                                     {
                                         'component': 'VCol',
-                                        'props': {'cols': 12, 'md': 6},
-                                        'content': [{
-                                            'component': 'VTextField',
-                                            'props': {
-                                                'model': 'keyword',
-                                                'label': '搜索关键词',
-                                                'placeholder': '输入片名，如：Oppenheimer',
-                                                'hint': '直接输入关键词测试搜索源返回结果',
-                                                'persistent-hint': True
-                                            }
-                                        }]
-                                    },
-                                    {
-                                        'component': 'VCol',
-                                        'props': {'cols': 12, 'md': 3},
-                                        'content': [{
-                                            'component': 'VSelect',
-                                            'props': {
-                                                'model': 'source',
-                                                'label': '搜索源',
-                                                'items': [
-                                                    {'title': 'PanSou', 'value': 'pansou'},
-                                                    {'title': 'Jackett', 'value': 'jackett'}
-                                                ],
-                                                'hint': '选择要测试的搜索源',
-                                                'persistent-hint': True
-                                            }
-                                        }]
-                                    },
-                                    {
-                                        'component': 'VCol',
-                                        'props': {'cols': 12, 'md': 3},
+                                        'props': {'cols': 6, 'md': 3},
                                         'content': [{
                                             'component': 'VBtn',
-                                            'props': {'color': 'primary', 'block': True, 'prepend-icon': 'mdi-magnify'},
-                                            'text': '开始搜索',
+                                            'props': {'color': 'primary', 'variant': 'outlined', 'size': 'small', 'block': True},
+                                            'text': 'PanSou: Oppenheimer',
                                             'events': {
                                                 'click': {
-                                                    'api': f'/plugin/SubTransfer115/search_test?apikey={settings.API_TOKEN}&keyword={{keyword}}&source={{source}}',
+                                                    'api': '/plugin/SubTransfer115/search_test',
                                                     'method': 'get',
-                                                    'success': {
-                                                        'target': 'search_results',
-                                                        'action': 'set'
+                                                    'params': {
+                                                        'apikey': settings.API_TOKEN,
+                                                        'keyword': 'Oppenheimer',
+                                                        'source': 'pansou'
+                                                    }
+                                                }
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        'component': 'VCol',
+                                        'props': {'cols': 6, 'md': 3},
+                                        'content': [{
+                                            'component': 'VBtn',
+                                            'props': {'color': 'primary', 'variant': 'outlined', 'size': 'small', 'block': True},
+                                            'text': 'PanSou: Inception',
+                                            'events': {
+                                                'click': {
+                                                    'api': '/plugin/SubTransfer115/search_test',
+                                                    'method': 'get',
+                                                    'params': {
+                                                        'apikey': settings.API_TOKEN,
+                                                        'keyword': 'Inception',
+                                                        'source': 'pansou'
+                                                    }
+                                                }
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        'component': 'VCol',
+                                        'props': {'cols': 6, 'md': 3},
+                                        'content': [{
+                                            'component': 'VBtn',
+                                            'props': {'color': 'teal', 'variant': 'outlined', 'size': 'small', 'block': True},
+                                            'text': 'Jackett: Oppenheimer',
+                                            'events': {
+                                                'click': {
+                                                    'api': '/plugin/SubTransfer115/search_test',
+                                                    'method': 'get',
+                                                    'params': {
+                                                        'apikey': settings.API_TOKEN,
+                                                        'keyword': 'Oppenheimer',
+                                                        'source': 'jackett'
+                                                    }
+                                                }
+                                            }
+                                        }]
+                                    },
+                                    {
+                                        'component': 'VCol',
+                                        'props': {'cols': 6, 'md': 3},
+                                        'content': [{
+                                            'component': 'VBtn',
+                                            'props': {'color': 'teal', 'variant': 'outlined', 'size': 'small', 'block': True},
+                                            'text': 'Jackett: Inception',
+                                            'events': {
+                                                'click': {
+                                                    'api': '/plugin/SubTransfer115/search_test',
+                                                    'method': 'get',
+                                                    'params': {
+                                                        'apikey': settings.API_TOKEN,
+                                                        'keyword': 'Inception',
+                                                        'source': 'jackett'
                                                     }
                                                 }
                                             }
@@ -460,26 +549,16 @@ class UIConfig:
             ]
         }
 
-
+        search_html = UIConfig._build_search_results_html(search_results)
         search_result_card = {
             'component': 'VCard',
-            'props': {'class': 'mb-4', 'model': 'search_results'},
+            'props': {'class': 'mb-4'},
             'content': [{
                 'component': 'VCardTitle',
                 'text': '搜索结果'
             }, {
                 'component': 'VCardText',
-                'content': [{
-                    'component': 'VList',
-                    'props': {'model': 'search_results.results', 'lines': 'two'},
-                    'content': [{
-                        'component': 'VListItem',
-                        'content': [
-                            {'component': 'VListItemTitle', 'text': '{title}'},
-                            {'component': 'VListItemSubtitle', 'text': '来源: {pan_type} | 时间: {update_time}'}
-                        ]
-                    }]
-                }]
+                'html': search_html
             }]
         }
 
