@@ -2,6 +2,7 @@
 Jackett 搜索客户端
 通过 Torznab API 搜索种子资源
 """
+import re
 import traceback
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional, Union
@@ -91,6 +92,14 @@ class JackettClient:
                 resp.raise_for_status()
 
             items = self._parse_torznab_xml(resp.content)
+
+            # 按关键词过滤标题
+            before_filter = len(items)
+            items = self._filter_by_title(items, keyword)
+            after_filter = len(items)
+            if before_filter > after_filter:
+                logger.info(f"Jackett 标题过滤: {before_filter} -> {after_filter} (keyword={keyword})")
+
             items = items[:limit]
 
             if not items:
@@ -175,6 +184,20 @@ class JackettClient:
 
         results.sort(key=lambda x: x.get("seeders", 0), reverse=True)
         return results
+
+    def _filter_by_title(self, items: List[Dict], keyword: str) -> List[Dict]:
+        """按关键词过滤搜索结果标题，剔除不相关的结果"""
+        # 从关键词中提取核心标题（去除年份、季/集编号）
+        core = re.sub(r'\b\d{4}\b', '', keyword)
+        core = re.sub(r'\b[Ss]\d{1,3}\b', '', core)
+        core = re.sub(r'\b[Ee]\d{1,3}\b', '', core)
+        core = core.strip()
+
+        if not core:
+            return items
+
+        filtered = [item for item in items if core.lower() in (item.get("title", "") or "").lower()]
+        return filtered
 
     def _extract_magnet(self, item: ET.Element) -> Optional[str]:
         """从 item 中提取磁力链接"""

@@ -4,11 +4,12 @@
     "release": true,
     "description": "结合MoviePilot订阅功能，通过PanSou搜索115网盘资源并转存缺失剧集。",
     "labels": "订阅,115网盘",
-    "version": "1.0.11",
+    "version": "1.0.12",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png",
     "author": "SteamCastle",
     "level": 1,
     "history": {
+      "v1.0.12": "1. Jackett 搜索结果新增标题过滤，根据关键词核心标题（去除年份/季/集编号）剔除不相关的结果；",
       "v1.0.11": "1. 修复 Jackett 搜索时 settings.PROXY 返回 dict 导致 requests 嵌套代理报错 TypeError 的问题；",
       "v1.0.10": "1. 修复 Jackett 搜索时 MoviePilot 框架自动解析 JSON 响应导致 resp.text 为 dict 的兼容性问题；2. 改用 resp.content（bytes）替代 resp.text，绕过框架响应拦截；3. 增加 resp 原始信息诊断日志和异常堆栈输出，便于排查；",
       "v1.0.9": "1. 修复搜索测试按钮点击无响应（{keyword}/{source} 占位符在 PageRender 中无法插值）；2. 修复搜索结果卡片显示 {title}/{pan_type}/{update_time} 字面文本；3. 改用预设测试按钮 + 服务端 HTML 渲染结果；",
