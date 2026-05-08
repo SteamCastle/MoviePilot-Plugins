@@ -4,7 +4,7 @@ Jackett 搜索客户端
 """
 import traceback
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import requests
 
@@ -21,7 +21,7 @@ class JackettClient:
         self,
         base_url: str,
         apikey: str,
-        proxy: Optional[str] = None,
+        proxy: Optional[Union[str, Dict[str, str]]] = None,
         tag: Optional[str] = None,
     ):
         base_url = (base_url or "").strip()
@@ -39,7 +39,7 @@ class JackettClient:
         logger.info(f"Jackett 客户端初始化: base_url={self._base_url}, tag={self._tag or '(全部)'}")
 
         if proxy:
-            self._proxies = {"http": proxy, "https": proxy}
+            self._proxies = proxy if isinstance(proxy, dict) else {"http": proxy, "https": proxy}
             logger.info(f"Jackett 客户端已配置代理: {proxy}")
         else:
             self._proxies = None
