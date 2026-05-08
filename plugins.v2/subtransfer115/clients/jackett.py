@@ -108,8 +108,15 @@ class JackettClient:
             logger.error(f"Jackett 搜索结果处理失败: keyword={keyword}, error={e}")
             return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
 
-    def _parse_torznab_xml(self, xml_text: str) -> List[Dict]:
+    def _parse_torznab_xml(self, xml_text) -> List[Dict]:
         """解析 Torznab XML 响应为结果列表"""
+        # 兼容 MoviePilot 框架可能自动解析 JSON 响应导致 resp.text 返回 dict
+        if isinstance(xml_text, dict):
+            error_msg = xml_text.get("error") or xml_text.get("message", str(xml_text))
+            logger.error(f"Jackett 返回 JSON 错误而非 XML: {error_msg}")
+            return []
+        if not isinstance(xml_text, str):
+            xml_text = str(xml_text) if xml_text else ""
         root = ET.fromstring(xml_text)
         channel = root.find("channel")
         if channel is None:
