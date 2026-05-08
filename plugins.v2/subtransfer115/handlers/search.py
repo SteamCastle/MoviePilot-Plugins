@@ -124,13 +124,17 @@ class SearchHandler:
             return []
 
         need_strict_search = self._check_tmdb_multiple_results(mediainfo.title)
-        if need_strict_search and mediainfo.year:
-            keyword = f"{mediainfo.title} {mediainfo.year}"
-        else:
-            keyword = mediainfo.title
+        # PanSou 不支持多关键词同时搜索，严格模式改为本地过滤年份
+        keyword = mediainfo.title
 
         logger.info(f"使用 PanSou 搜索电影资源: {mediainfo.title}，关键词: '{keyword}'")
         results = self._pansou_search(keyword)
+
+        if need_strict_search and mediainfo.year:
+            year_str = str(mediainfo.year)
+            results = [r for r in results if year_str in r.get("title", "")]
+            logger.info(f"PanSou 严格模式本地过滤（年份 {year_str}）后剩余 {len(results)} 个结果")
+
         if results:
             logger.info(f"PanSou 搜索到 {len(results)} 个结果")
         else:
@@ -143,7 +147,7 @@ class SearchHandler:
             return []
 
         search_keywords = [
-            f"{mediainfo.title}{season}",
+            f"{mediainfo.title} S{season:02d}",
             mediainfo.title
         ]
 
