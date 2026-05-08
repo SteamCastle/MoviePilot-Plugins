@@ -4,11 +4,12 @@
     "release": true,
     "description": "结合MoviePilot订阅功能，通过PanSou搜索115网盘资源并转存缺失剧集。",
     "labels": "订阅,115网盘",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png",
     "author": "SteamCastle",
     "level": 1,
     "history": {
+      "v1.0.10": "1. 修复 Jackett 搜索时 MoviePilot 框架自动解析 JSON 响应导致 resp.text 为 dict 的兼容性问题；2. 改用 resp.content（bytes）替代 resp.text，绕过框架响应拦截；3. 增加 resp 原始信息诊断日志和异常堆栈输出，便于排查；",
       "v1.0.9": "1. 修复搜索测试按钮点击无响应（{keyword}/{source} 占位符在 PageRender 中无法插值）；2. 修复搜索结果卡片显示 {title}/{pan_type}/{update_time} 字面文本；3. 改用预设测试按钮 + 服务端 HTML 渲染结果；",
       "v1.0.7": "1. 修复 Jackett URL 中 tag 作为查询参数不生效的问题，改为路径中 tag:标签 格式并补回 /api 后缀；2. 兼容 torznab 2015/2010 双 namespace 解析 seeders 属性；3. 修复 size 作为直接子元素时无法提取的问题；4. 修复搜索测试 VBtn 缺少 keyword/source 参数导致点击无响应；5. 搜索测试新增搜索结果展示卡片；",
       "v1.0.6": "1. 修复 Jackett 搜索 API URL 多余 /api 后缀导致请求失败的问题；2. 修复 Jackett 搜索结果磁力链接提取遗漏 <link>/<enclosure> 元素导致结果为空的问题；3. 完善 Jackett 搜索各环节错误日志输出，便于排查问题；",
