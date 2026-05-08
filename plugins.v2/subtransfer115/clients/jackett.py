@@ -2,13 +2,12 @@
 Jackett 搜索客户端
 通过 Torznab API 搜索种子资源
 """
-import logging
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional
 
 import requests
 
-logger = logging.getLogger(__name__)
+from app.log import logger
 
 TORZNAB_NS_2010 = "http://torznab.schemas.com/2010/feed"
 TORZNAB_NS_2015 = "http://torznab.com/schemas/2015/feed"
@@ -24,16 +23,25 @@ class JackettClient:
         proxy: Optional[str] = None,
         tag: Optional[str] = None,
     ):
+        base_url = (base_url or "").strip()
+        if not base_url:
+            raise ValueError("Jackett URL 不能为空")
+        if not (base_url.startswith("http://") or base_url.startswith("https://")):
+            logger.warning(f"Jackett URL 缺少协议前缀，已自动补充 http://: {base_url}")
+            base_url = f"http://{base_url}"
+
         self._base_url = base_url.rstrip("/")
         self._apikey = apikey
         self._tag = tag
         self._api_call_count = 0
 
-        self._session = requests.Session()
-        self._session.headers.update({"User-Agent": "MoviePilot-SubTransfer115/1.0"})
+        logger.info(f"Jackett 客户端初始化: base_url={self._base_url}, tag={self._tag or '(全部)'}")
 
         if proxy:
-            self._session.proxies = {"http": proxy, "https": proxy}
+            self._proxies = {"http": proxy, "https": proxy}
+            logger.info(f"Jackett 客户端已配置代理: {proxy}")
+        else:
+            self._proxies = None
 
     def reset_api_call_count(self):
         self._api_call_count = 0
@@ -63,7 +71,13 @@ class JackettClient:
         try:
             self._api_call_count += 1
             logger.info(f"Jackett 搜索请求: url={url}, keyword={keyword}")
-            resp = self._session.get(url, params=params, timeout=30)
+            resp = requests.get(
+                url,
+                params=params,
+                timeout=30,
+                headers={"User-Agent": "MoviePilot-SubTransfer115/1.0"},
+                proxies=self._proxies,
+            )
 
             if not resp.ok:
                 logger.error(
@@ -88,7 +102,7 @@ class JackettClient:
             logger.error(f"Jackett 搜索请求失败: keyword={keyword}, url={url}, error={e}")
             return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
         except ET.ParseError as e:
-            logger.error(f"Jackett 搜索结果 XML 解析失败: keyword={keyword}, error={e}, body_preview={resp.text[:300] if 'resp' in dir() else 'N/A'}")
+            logger.error(f"Jackett 搜索结果 XML 解析失败: keyword={keyword}, error={e}, body_preview={resp.text[:300]}")
             return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
         except Exception as e:
             logger.error(f"Jackett 搜索结果处理失败: keyword={keyword}, error={e}")
