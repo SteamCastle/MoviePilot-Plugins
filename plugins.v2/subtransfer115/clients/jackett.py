@@ -2,6 +2,7 @@
 Jackett 搜索客户端
 通过 Torznab API 搜索种子资源
 """
+import traceback
 import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional
 
@@ -78,19 +79,22 @@ class JackettClient:
                 headers={"User-Agent": "MoviePilot-SubTransfer115/1.0"},
                 proxies=self._proxies,
             )
+            logger.info(
+                f"Jackett 原始 resp 信息: {resp}"
+            )
 
             if not resp.ok:
                 logger.error(
                     f"Jackett 搜索返回非 2xx 状态码: "
-                    f"status={resp.status_code}, url={resp.url}, body={resp.text[:500]}"
+                    f"status={resp.status_code}, url={resp.url}, body={resp.content[:500]}"
                 )
                 resp.raise_for_status()
 
-            items = self._parse_torznab_xml(resp.text)
+            items = self._parse_torznab_xml(resp.content)
             items = items[:limit]
 
             if not items:
-                logger.warning(f"Jackett 搜索无结果: keyword={keyword}, xml_len={len(resp.text)}")
+                logger.warning(f"Jackett 搜索无结果: keyword={keyword}, xml_len={len(resp.content)}")
 
             return {
                 "keyword": keyword,
@@ -102,20 +106,26 @@ class JackettClient:
             logger.error(f"Jackett 搜索请求失败: keyword={keyword}, url={url}, error={e}")
             return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
         except ET.ParseError as e:
-            logger.error(f"Jackett 搜索结果 XML 解析失败: keyword={keyword}, error={e}, body_preview={resp.text[:300]}")
+            logger.error(f"Jackett 搜索结果 XML 解析失败: keyword={keyword}, error={e}, body_preview={resp.content[:300]}")
+            logger.error(f"堆栈:\n{traceback.format_exc()}")
             return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
         except Exception as e:
             logger.error(f"Jackett 搜索结果处理失败: keyword={keyword}, error={e}")
+            logger.error(f"堆栈:\n{traceback.format_exc()}")
             return {"keyword": keyword, "total": 0, "count": 0, "results": {}, "error": str(e)}
 
     def _parse_torznab_xml(self, xml_text) -> List[Dict]:
         """解析 Torznab XML 响应为结果列表"""
-        # 兼容 MoviePilot 框架可能自动解析 JSON 响应导致 resp.text 返回 dict
-        if isinstance(xml_text, dict):
+        if isinstance(xml_text, bytes):
+            xml_text = xml_text.decode("utf-8", errors="replace")
+        elif isinstance(xml_text, dict):
             logger.error(f"Jackett 返回 JSON 错误而非 XML，完整响应: {xml_text}")
             return []
-        if not isinstance(xml_text, str):
-            xml_text = str(xml_text) if xml_text else ""
+        elif not isinstance(xml_text, str):
+            logger.error(f"Jackett 返回未知类型响应: type={type(xml_text)}, value={str(xml_text)[:300]}")
+            return []
+        if not xml_text:
+            return []
         root = ET.fromstring(xml_text)
         channel = root.find("channel")
         if channel is None:
