@@ -417,9 +417,9 @@ class UIConfig:
 
     @staticmethod
     def get_page(history: List[dict], search_results: Optional[dict] = None) -> List[dict]:
-        “””
+        """
         详情页
-        “””
+        """
         from datetime import datetime
 
         history = history or []
