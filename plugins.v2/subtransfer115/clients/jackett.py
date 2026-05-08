@@ -112,8 +112,7 @@ class JackettClient:
         """解析 Torznab XML 响应为结果列表"""
         # 兼容 MoviePilot 框架可能自动解析 JSON 响应导致 resp.text 返回 dict
         if isinstance(xml_text, dict):
-            error_msg = xml_text.get("error") or xml_text.get("message", str(xml_text))
-            logger.error(f"Jackett 返回 JSON 错误而非 XML: {error_msg}")
+            logger.error(f"Jackett 返回 JSON 错误而非 XML，完整响应: {xml_text}")
             return []
         if not isinstance(xml_text, str):
             xml_text = str(xml_text) if xml_text else ""
