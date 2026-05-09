@@ -10,10 +10,11 @@ from app.core.metainfo import MetaInfo
 from app.chain.download import DownloadChain
 from app.db import SessionFactory
 from app.db.subscribe_oper import SubscribeOper
+from app.db.systemconfig_oper import SystemConfigOper
 from app.db.downloadhistory_oper import DownloadHistoryOper
 from app.log import logger
 from app.schemas import MediaInfo
-from app.schemas.types import MediaType, NotificationType
+from app.schemas.types import MediaType, NotificationType, SystemConfigKey
 from app.utils.string import StringUtils
 
 from ..utils import FileMatcher, SubscribeFilter
@@ -58,9 +59,66 @@ class SyncHandler:
         self._get_data = get_data_func
         self._save_data = save_data_func
 
+    @staticmethod
+    def _apply_rule_groups(resources: List[Dict], rule_groups: List[str],
+                           mediainfo: 'MediaInfo', strict: bool = True) -> List[Dict]:
+        """用 MoviePilot 优先级规则组对资源评分"""
+        try:
+            from app.modules.filter import FilterModule
+            from app.schemas.context import TorrentInfo
+
+            fm = FilterModule()
+            fm.init_module()
+
+            # 构建 TorrentInfo 列表
+            torrents = []
+            for r in resources:
+                t = TorrentInfo(
+                    title=r.get("_file_name", r.get("title", "")),
+                    description=r.get("title", ""),
+                    seeders=r.get("seeders", 0),
+                )
+                torrents.append(t)
+
+            # 筛选匹配的资源
+            matched = fm.filter_torrents(rule_groups, torrents, mediainfo)
+
+            # 构建 title -> pri_order 映射
+            score_map = {}
+            for t in matched:
+                score_map[t.title] = getattr(t, 'pri_order', 0) or 0
+
+            # 更新资源分数
+            max_score = max(score_map.values()) if score_map else 0
+            for r in resources:
+                title = r.get("_file_name", r.get("title", ""))
+                if title in score_map:
+                    r["_score"] = score_map[title]
+                    r["_is_perfect"] = (score_map[title] == max_score)
+                elif not strict:
+                    r["_score"] = 0
+                    r["_is_perfect"] = False
+                else:
+                    r["_score"] = -1  # 标记为不匹配，后续过滤
+
+            logger.info(
+                f"优先级规则组评分: 规则组={rule_groups}, "
+                f"匹配={len(matched)}/{len(resources)}, "
+                f"最高分={max_score}"
+            )
+
+            # 严格模式：过滤掉不匹配的
+            if strict:
+                resources = [r for r in resources if r["_score"] >= 0]
+
+            return resources
+        except Exception as e:
+            logger.warning(f"应用优先级规则组失败: {e}，回退到基础评分")
+            return resources
+
     def _validate_and_score_movie_resources(
         self, p115_results: List[Dict], mediainfo: MediaInfo,
-        subscribe_filter: 'SubscribeFilter'
+        subscribe_filter: 'SubscribeFilter', rule_groups: List[str] = None
     ) -> List[Dict]:
         """验证电影资源有效性、评分、排序"""
         validated = []
@@ -69,6 +127,10 @@ class SyncHandler:
             share_url = resource.get("url", "")
             resource_title = resource.get("title", "")
             if not share_url:
+                continue
+
+            # 用 MetaInfo 过滤标题不匹配的资源
+            if resource_title and not self._resource_matches_media(resource_title, mediainfo):
                 continue
 
             if pan_type == "115":
@@ -104,13 +166,19 @@ class SyncHandler:
             resource["_is_perfect"] = is_perfect
             validated.append(resource)
 
+        # 优先级规则组评分
+        if rule_groups and validated:
+            validated = self._apply_rule_groups(validated, rule_groups, mediainfo,
+                                                strict=subscribe_filter.strict)
+
         validated.sort(key=lambda r: (r["_score"], r.get("update_time", "")), reverse=True)
         return validated
 
     def _validate_and_score_tv_resources(
         self, p115_results: List[Dict], mediainfo: MediaInfo, season: int,
         missing_episodes: List[int], subscribe_filter: 'SubscribeFilter',
-        is_best_version: bool, episode_history_scores: Dict[int, int]
+        is_best_version: bool, episode_history_scores: Dict[int, int],
+        rule_groups: List[str] = None
     ) -> List[Dict]:
         """验证电视剧资源有效性、评分、排序"""
         validated = []
@@ -119,6 +187,10 @@ class SyncHandler:
             share_url = resource.get("url", "")
             resource_title = resource.get("title", "")
             if not share_url:
+                continue
+
+            # 用 MetaInfo 过滤标题不匹配的资源
+            if resource_title and not self._resource_matches_media(resource_title, mediainfo, season=season):
                 continue
 
             if pan_type == "115":
@@ -188,8 +260,105 @@ class SyncHandler:
 
             validated.append(resource)
 
+        # 优先级规则组评分
+        if rule_groups and validated:
+            validated = self._apply_rule_groups(validated, rule_groups, mediainfo,
+                                                strict=subscribe_filter.strict)
+
         validated.sort(key=lambda r: (r["_score"], r.get("update_time", "")), reverse=True)
         return validated
+
+    def _build_subscribe_filter(self, subscribe, is_best_version: bool):
+        """构建过滤条件，同时读取优先级规则组和默认质量/分辨率规则"""
+        # 优先级规则组: subscribe.filter_groups > 系统设置
+        rule_groups = None
+        try:
+            rule_groups = subscribe.filter_groups
+            if not rule_groups:
+                key = SystemConfigKey.BestVersionFilterRuleGroups if is_best_version else SystemConfigKey.SubscribeFilterRuleGroups
+                rule_groups = SystemConfigOper().get(key) or []
+            if rule_groups:
+                logger.info(f"订阅 '{subscribe.name}' 使用优先级规则组: {rule_groups}")
+        except Exception as e:
+            logger.warning(f"读取优先级规则组失败: {e}")
+
+        # 质量/分辨率/特效 正则: subscribe字段 > 系统默认
+        quality = subscribe.quality
+        resolution = subscribe.resolution
+        effect = subscribe.effect
+        if not (quality or resolution or effect):
+            try:
+                default_rule = SystemConfigOper().get(SystemConfigKey.SubscribeDefaultParams) or {}
+                quality = quality or default_rule.get("quality")
+                resolution = resolution or default_rule.get("resolution")
+                effect = effect or default_rule.get("effect")
+                if quality or resolution or effect:
+                    logger.info(
+                        f"订阅 '{subscribe.name}' 未设置过滤条件，使用系统默认值: "
+                        f"quality={quality}, resolution={resolution}, effect={effect}"
+                    )
+            except Exception as e:
+                logger.warning(f"读取系统默认过滤规则失败: {e}")
+
+        subscribe_filter = SubscribeFilter(
+            quality=quality, resolution=resolution,
+            effect=effect, strict=not is_best_version
+        )
+        return subscribe_filter, rule_groups
+
+    @staticmethod
+    def _resource_matches_media(resource_title: str, mediainfo: 'MediaInfo',
+                                 season: int = None) -> bool:
+        """用 MetaInfo 解析资源标题，判断是否匹配目标媒体"""
+        try:
+            meta = MetaInfo(resource_title)
+        except Exception:
+            return True  # 解析失败不拦截
+
+        # 类型检查
+        if season is not None:
+            # 电视剧：标题中出现电影年份 → 不匹配
+            if meta.type == MediaType.MOVIE:
+                return False
+        else:
+            # 电影：标题中出现 S01/E01 这类电视剧标记 → 不匹配
+            if meta.type == MediaType.TV:
+                return False
+
+        # 片名比对
+        meta_titles = {n.lower() for n in (meta.cn_name, meta.en_name) if n}
+        media_titles = {n.lower() for n in (mediainfo.title, getattr(mediainfo, 'original_title', None)) if n}
+
+        if meta_titles and media_titles:
+            if meta_titles & media_titles:
+                return True
+            # 子串匹配（英文标题可能包含原名 + 额外信息）
+            for mt in meta_titles:
+                for med_t in media_titles:
+                    if mt in med_t or med_t in mt:
+                        return True
+
+        # 年份检查
+        if meta.year:
+            try:
+                meta_year = int(meta.year)
+                mediainfo_year = mediainfo.year
+                if mediainfo_year:
+                    if season is not None:
+                        if meta_year < mediainfo_year:
+                            return False
+                    else:
+                        if abs(meta_year - mediainfo_year) > 1:
+                            return False
+            except (ValueError, TypeError):
+                pass
+
+        # 如果解析不出标题信息，不过滤
+        if not meta_titles:
+            return True
+
+        logger.info(f"资源标题不匹配: '{resource_title}' -> meta_names={meta_titles}, media_names={media_titles}")
+        return False
 
     def process_movie_subscribe(
         self, subscribe, history: List[dict],
@@ -241,16 +410,13 @@ class SyncHandler:
 
             logger.info(f"找到 {len(p115_results)} 个 115 网盘资源")
 
-            subscribe_filter = SubscribeFilter(
-                quality=subscribe.quality, resolution=subscribe.resolution,
-                effect=subscribe.effect, strict=not is_best_version
-            )
+            subscribe_filter, rule_groups = self._build_subscribe_filter(subscribe, is_best_version)
             if subscribe_filter.has_filters():
                 mode_text = "洗版模式" if is_best_version else "严格模式"
-                logger.info(f"电影 {subscribe.name} 过滤条件({mode_text}) - 质量: {subscribe.quality}, 分辨率: {subscribe.resolution}, 特效: {subscribe.effect}")
+                logger.info(f"电影 {subscribe.name} 过滤条件({mode_text}) - 质量: {subscribe_filter.quality}, 分辨率: {subscribe_filter.resolution}, 特效: {subscribe_filter.effect}")
 
             validated = self._validate_and_score_movie_resources(
-                p115_results, mediainfo, subscribe_filter
+                p115_results, mediainfo, subscribe_filter, rule_groups
             )
             if not validated:
                 logger.info(f"过滤后无有效资源，未找到电影 {mediainfo.title} 的 115 网盘资源")
@@ -524,13 +690,10 @@ class SyncHandler:
 
             logger.info(f"{mediainfo.title_year} S{season} 待转存剧集：{missing_episodes}")
 
-            subscribe_filter = SubscribeFilter(
-                quality=subscribe.quality, resolution=subscribe.resolution,
-                effect=subscribe.effect, strict=not is_best_version
-            )
+            subscribe_filter, rule_groups = self._build_subscribe_filter(subscribe, is_best_version)
             if subscribe_filter.has_filters():
                 mode_text = "洗版模式" if is_best_version else "严格模式"
-                logger.info(f"{mediainfo.title} S{season} 过滤条件({mode_text}) - 质量: {subscribe.quality}, 分辨率: {subscribe.resolution}, 特效: {subscribe.effect}")
+                logger.info(f"{mediainfo.title} S{season} 过滤条件({mode_text}) - 质量: {subscribe_filter.quality}, 分辨率: {subscribe_filter.resolution}, 特效: {subscribe_filter.effect}")
 
             success_episodes = []
 
@@ -555,7 +718,8 @@ class SyncHandler:
 
             validated = self._validate_and_score_tv_resources(
                 p115_results, mediainfo, season, missing_episodes,
-                subscribe_filter, is_best_version, episode_history_scores
+                subscribe_filter, is_best_version, episode_history_scores,
+                rule_groups
             )
             if not validated:
                 logger.info(f"过滤后无有效资源")

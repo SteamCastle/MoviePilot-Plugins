@@ -4,11 +4,12 @@
     "release": true,
     "description": "结合MoviePilot订阅功能，通过PanSou搜索115网盘资源并转存缺失剧集。",
     "labels": "订阅,115网盘",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/cloud.png",
     "author": "SteamCastle",
     "level": 1,
     "history": {
+      "v1.0.14": "1. 新增 MetaInfo 标题媒体识别过滤，剔除搜索结果中与目标媒体不匹配的资源；2. 订阅过滤条件优先读取系统「优先级规则组」（SubscribeFilterRuleGroups/BestVersionFilterRuleGroups），通过 FilterModule 评分排序；3. 质量/分辨率/特效正则回退读取系统 SubscribeDefaultParams；未配置任何规则时保持纯时间排序，行为不变；",
       "v1.0.13": "1. 重构同步逻辑为「过滤→评分→排序→转存」流水线，资源按 SubscribeFilter 评分排序后再依次处理，高分优先；2. 磁力链接/电驴资源同样参与评分排序；",
       "v1.0.12": "1. Jackett 搜索结果新增标题过滤，根据关键词核心标题（去除年份/季/集编号）剔除不相关的结果；",
       "v1.0.11": "1. 修复 Jackett 搜索时 settings.PROXY 返回 dict 导致 requests 嵌套代理报错 TypeError 的问题；",
