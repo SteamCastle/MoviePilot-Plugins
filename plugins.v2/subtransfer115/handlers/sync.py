@@ -58,6 +58,139 @@ class SyncHandler:
         self._get_data = get_data_func
         self._save_data = save_data_func
 
+    def _validate_and_score_movie_resources(
+        self, p115_results: List[Dict], mediainfo: MediaInfo,
+        subscribe_filter: 'SubscribeFilter'
+    ) -> List[Dict]:
+        """验证电影资源有效性、评分、排序"""
+        validated = []
+        for resource in p115_results:
+            pan_type = resource.get("pan_type", "115")
+            share_url = resource.get("url", "")
+            resource_title = resource.get("title", "")
+            if not share_url:
+                continue
+
+            if pan_type == "115":
+                try:
+                    share_status = self._p115_manager.check_share_status(share_url)
+                    if not share_status.is_valid:
+                        logger.warning(f"分享链接无效：{share_url}，原因：{share_status.status_text}")
+                        continue
+                    share_files = self._p115_manager.list_share_files(share_url)
+                    if not share_files:
+                        logger.info(f"分享链接无内容：{share_url}")
+                        continue
+                    matched_file = FileMatcher.match_movie_file(
+                        share_files, mediainfo.title, subscribe_filter=subscribe_filter
+                    )
+                    if not matched_file:
+                        logger.info(f"未找到匹配的电影文件：{resource_title}")
+                        continue
+                    file_name = matched_file.get('name', '')
+                    logger.info(f"找到匹配文件：{file_name}")
+                    resource["_matched_file"] = matched_file
+                    resource["_file_name"] = file_name
+                except Exception as e:
+                    logger.error(f"验证资源出错：{share_url[:50]}, 错误：{str(e)}")
+                    continue
+            else:
+                resource["_file_name"] = resource_title
+
+            file_name = resource.get("_file_name", "")
+            _, score = subscribe_filter.match(file_name) if subscribe_filter.has_filters() else (True, 0)
+            is_perfect = subscribe_filter.is_perfect_match(file_name) if subscribe_filter.has_filters() else True
+            resource["_score"] = score
+            resource["_is_perfect"] = is_perfect
+            validated.append(resource)
+
+        validated.sort(key=lambda r: (r["_score"], r.get("update_time", "")), reverse=True)
+        return validated
+
+    def _validate_and_score_tv_resources(
+        self, p115_results: List[Dict], mediainfo: MediaInfo, season: int,
+        missing_episodes: List[int], subscribe_filter: 'SubscribeFilter',
+        is_best_version: bool, episode_history_scores: Dict[int, int]
+    ) -> List[Dict]:
+        """验证电视剧资源有效性、评分、排序"""
+        validated = []
+        for resource in p115_results:
+            pan_type = resource.get("pan_type", "115")
+            share_url = resource.get("url", "")
+            resource_title = resource.get("title", "")
+            if not share_url:
+                continue
+
+            if pan_type == "115":
+                try:
+                    share_status = self._p115_manager.check_share_status(share_url)
+                    if not share_status.is_valid:
+                        logger.warning(f"分享链接无效：{share_url}，原因：{share_status.status_text}")
+                        continue
+                    share_files = self._p115_manager.list_share_files(
+                        share_url, target_season=(season if self._skip_other_season_dirs else None)
+                    )
+                    if not share_files:
+                        logger.info(f"分享链接无内容：{share_url}")
+                        continue
+
+                    matched_items = []
+                    for episode in missing_episodes[:]:
+                        matched_file = FileMatcher.match_episode_file(
+                            share_files, mediainfo.title, season, episode,
+                            subscribe_filter=subscribe_filter
+                        )
+                        if matched_file:
+                            file_name = matched_file.get('name', '')
+                            _, current_score = subscribe_filter.match(file_name) if subscribe_filter.has_filters() else (True, 0)
+                            is_perfect = subscribe_filter.is_perfect_match(file_name) if subscribe_filter.has_filters() else True
+
+                            is_upgrade = False
+                            if is_best_version and episode in episode_history_scores:
+                                old_score = episode_history_scores[episode]
+                                if current_score <= old_score:
+                                    logger.info(f"E{episode:02d} 已有历史分数 {old_score}，当前 {current_score}，跳过")
+                                    continue
+                                else:
+                                    logger.info(f"E{episode:02d} 洗版：旧历史分数 {old_score} -> 新分数 {current_score}")
+                                    is_upgrade = True
+
+                            matched_items.append({
+                                "file": matched_file, "episode": episode,
+                                "score": current_score, "is_perfect": is_perfect,
+                                "is_upgrade": is_upgrade
+                            })
+
+                    if not matched_items:
+                        logger.info(f"该分享未匹配到 S{season} 的任何缺失剧集：{resource_title}")
+                        continue
+
+                    resource["_matched_items"] = matched_items
+                    resource["_file_name"] = resource_title
+                except Exception as e:
+                    logger.error(f"验证资源出错：{share_url[:50]}, 错误：{str(e)}")
+                    continue
+            else:
+                resource["_file_name"] = resource_title
+                _, score = subscribe_filter.match(resource_title) if subscribe_filter.has_filters() else (True, 0)
+                is_perfect = subscribe_filter.is_perfect_match(resource_title) if subscribe_filter.has_filters() else True
+                resource["_score"] = score
+                resource["_is_perfect"] = is_perfect
+
+            if pan_type == "115":
+                matched_items = resource.get("_matched_items", [])
+                if matched_items:
+                    resource["_score"] = sum(it["score"] for it in matched_items) / len(matched_items)
+                    resource["_is_perfect"] = all(it["is_perfect"] for it in matched_items)
+                else:
+                    resource["_score"] = 0
+                    resource["_is_perfect"] = False
+
+            validated.append(resource)
+
+        validated.sort(key=lambda r: (r["_score"], r.get("update_time", "")), reverse=True)
+        return validated
+
     def process_movie_subscribe(
         self, subscribe, history: List[dict],
         transfer_details: List[Dict[str, Any]], transferred_count: int
@@ -116,45 +249,34 @@ class SyncHandler:
                 mode_text = "洗版模式" if is_best_version else "严格模式"
                 logger.info(f"电影 {subscribe.name} 过滤条件({mode_text}) - 质量: {subscribe.quality}, 分辨率: {subscribe.resolution}, 特效: {subscribe.effect}")
 
+            validated = self._validate_and_score_movie_resources(
+                p115_results, mediainfo, subscribe_filter
+            )
+            if not validated:
+                logger.info(f"过滤后无有效资源，未找到电影 {mediainfo.title} 的 115 网盘资源")
+                return transferred_count
+
+            logger.info(f"找到 {len(validated)} 个有效资源，按评分排序")
+
             movie_transferred = False
-            for resource in p115_results:
+            for resource in validated:
                 if movie_transferred:
                     break
 
                 share_url = resource.get("url", "")
                 resource_title = resource.get("title", "")
                 pan_type = resource.get("pan_type", "115")
+                file_name = resource.get("_file_name", resource_title)
+                current_score = resource.get("_score", 0)
+                is_perfect = resource.get("_is_perfect", False)
 
-                if not share_url:
-                    continue
-
-                logger.info(f"检查资源 ({pan_type})：{resource_title} - {share_url[:50]}...")
+                logger.info(f"处理资源 ({pan_type}) [分数:{current_score}]：{resource_title} - {share_url[:50]}...")
 
                 try:
                     if pan_type == "115":
-                        share_status = self._p115_manager.check_share_status(share_url)
-                        if not share_status.is_valid:
-                            logger.warning(f"分享链接无效：{share_url}，原因：{share_status.status_text}")
-                            continue
-
-                        share_files = self._p115_manager.list_share_files(share_url)
-                        if not share_files:
-                            logger.info(f"分享链接无内容：{share_url}")
-                            continue
-
-                        matched_file = FileMatcher.match_movie_file(
-                            share_files, mediainfo.title, subscribe_filter=subscribe_filter
-                        )
-
+                        matched_file = resource.get("_matched_file")
                         if not matched_file:
-                            logger.info("未找到匹配的电影文件")
                             continue
-
-                        file_name = matched_file.get('name', '')
-                        logger.info(f"找到匹配文件：{file_name}")
-
-                        _, current_score = subscribe_filter.match(file_name) if subscribe_filter.has_filters() else (True, 0)
-                        is_perfect = subscribe_filter.is_perfect_match(file_name) if subscribe_filter.has_filters() else True
 
                         if is_best_version and movie_history_score >= 0:
                             if current_score <= movie_history_score:
@@ -226,7 +348,7 @@ class SyncHandler:
                                 "title": mediainfo.title, "year": mediainfo.year,
                                 "type": "电影", "status": "成功" if success else "失败",
                                 "share_url": share_url, "file_name": resource_title,
-                                "filter_score": 0, "perfect_match": False,
+                                "filter_score": current_score, "perfect_match": is_perfect,
                                 "pan_type": pan_type,
                                 "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             }
@@ -431,9 +553,19 @@ class SyncHandler:
                 logger.info(f"未找到资源")
                 return transferred_count
 
-            logger.info(f"找到 {len(p115_results)} 个资源")
+            validated = self._validate_and_score_tv_resources(
+                p115_results, mediainfo, season, missing_episodes,
+                subscribe_filter, is_best_version, episode_history_scores
+            )
+            if not validated:
+                logger.info(f"过滤后无有效资源")
+                return transferred_count
 
-            for resource in p115_results:
+            logger.info(f"找到 {len(validated)} 个有效资源，按评分排序")
+
+            for resource in validated:
+                if not missing_episodes:
+                    break
                 if transferred_count >= self._max_transfer_per_sync:
                     logger.info(f"已达单次同步上限 {self._max_transfer_per_sync}")
                     break
@@ -445,55 +577,18 @@ class SyncHandler:
                 if not share_url:
                     continue
 
-                logger.info(f"检查资源 ({pan_type})：{resource_title} - {share_url[:50]}...")
+                logger.info(f"处理资源 ({pan_type}) [分数:{resource.get('_score', 0):.0f}]：{resource_title} - {share_url[:50]}...")
 
                 try:
                     if pan_type == "115":
-                        share_status = self._p115_manager.check_share_status(share_url)
-                        if not share_status.is_valid:
-                            logger.warning(f"分享链接无效：{share_url}，原因：{share_status.status_text}")
-                            continue
-
-                        share_files = self._p115_manager.list_share_files(
-                            share_url, target_season=(season if self._skip_other_season_dirs else None)
-                        )
-                        if not share_files:
-                            logger.info(f"分享链接无内容：{share_url}")
-                            continue
-
-                        logger.info(f"分享包含 {len(share_files)} 个文件/目录")
-
-                        matched_items = []
-                        for episode in missing_episodes[:]:
-                            matched_file = FileMatcher.match_episode_file(
-                                share_files, mediainfo.title, season, episode,
-                                subscribe_filter=subscribe_filter
-                            )
-                            if matched_file:
-                                file_name = matched_file.get('name', '')
-                                logger.info(f"找到匹配文件：{file_name} -> E{episode:02d}")
-
-                                _, current_score = subscribe_filter.match(file_name) if subscribe_filter.has_filters() else (True, 0)
-                                is_perfect = subscribe_filter.is_perfect_match(file_name) if subscribe_filter.has_filters() else True
-
-                                is_upgrade = False
-                                if is_best_version and episode in episode_history_scores:
-                                    old_score = episode_history_scores[episode]
-                                    if current_score <= old_score:
-                                        logger.info(f"E{episode:02d} 已有分数 {old_score}，当前 {current_score}，跳过")
-                                        continue
-                                    else:
-                                        logger.info(f"E{episode:02d} 洗版：旧分数 {old_score} -> 新分数 {current_score}")
-                                        is_upgrade = True
-
-                                matched_items.append({
-                                    "file": matched_file, "episode": episode,
-                                    "score": current_score, "is_perfect": is_perfect,
-                                    "is_upgrade": is_upgrade
-                                })
-
+                        matched_items = resource.get("_matched_items", [])
                         if not matched_items:
-                            logger.info(f"该分享未匹配到 S{season} 的任何缺失剧集")
+                            continue
+
+                        # 过滤已被前面资源覆盖的剧集
+                        matched_items = [it for it in matched_items if it["episode"] in missing_episodes]
+                        if not matched_items:
+                            logger.info(f"该分享的剧集已被前面更高评分的资源覆盖")
                             continue
 
                         remaining_quota = self._max_transfer_per_sync - transferred_count
@@ -579,21 +674,21 @@ class SyncHandler:
                                 logger.debug(f"已记录 {mediainfo.title} S{season:02d} {episodes_str} 下载历史")
                             except Exception as e:
                                 logger.warning(f"记录下载历史失败：{e}")
-
-                        if not missing_episodes:
-                            break
                     else:
                         if pan_type in ("magnet", "ed2k"):
                             offline_save_dir = f"{self._offline_download_path}/{show_folder}/Season {season}"
                             logger.info(f"添加离线下载任务：{pan_type} - {share_url[:50]}...，保存到: {offline_save_dir}")
                             success = self._p115_manager.add_offline_task(share_url, save_path=offline_save_dir)
 
+                            current_score = resource.get("_score", 0)
+                            is_perfect = resource.get("_is_perfect", False)
+
                             history_item = {
                                 "title": mediainfo.title, "season": season,
                                 "episode": 0, "type": "电视剧",
                                 "status": "成功" if success else "失败",
                                 "share_url": share_url, "file_name": resource_title,
-                                "filter_score": 0, "perfect_match": False,
+                                "filter_score": current_score, "perfect_match": is_perfect,
                                 "pan_type": pan_type,
                                 "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             }
