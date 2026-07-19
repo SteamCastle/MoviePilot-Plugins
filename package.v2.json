@@ -24,5 +24,18 @@
       "v1.0.1": "1. 新增 Jackett 搜索源支持，支持种子资源搜索并添加为115离线下载任务；",
       "v1.0.0": "1. 重构插件更名为 SubTransfer115；2. 移除 Nullbr 和 HDHive，简化为纯 PanSou 搜索；"
     }
+  },
+  "HermesMsg": {
+    "name": "HermesMsg",
+    "release": true,
+    "description": "将MoviePilot消息通知通过Hermes转发到微信。配置Webhook地址后，下载/入库/订阅等事件自动推送。",
+    "labels": "通知,微信,Hermes",
+    "version": "1.0.0",
+    "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/message.png",
+    "author": "SteamCastle",
+    "level": 1,
+    "history": {
+      "v1.0.0": "1. 首个版本，支持通过Hermes Webhook转发MoviePilot通知到微信；"
+    }
   }
 }
